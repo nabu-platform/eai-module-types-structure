@@ -2,8 +2,10 @@ package be.nabu.eai.module.types.structure;
 
 import java.io.IOException;
 import java.text.ParseException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 import javafx.beans.value.ChangeListener;
@@ -11,7 +13,6 @@ import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
 import javafx.event.Event;
 import javafx.event.EventHandler;
-import javafx.fxml.FXMLLoader;
 import javafx.scene.control.Button;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SelectionMode;
@@ -27,9 +28,11 @@ import javafx.scene.layout.VBox;
 import be.nabu.eai.developer.MainController;
 import be.nabu.eai.developer.api.ArtifactGUIInstance;
 import be.nabu.eai.developer.api.ArtifactGUIManager;
-import be.nabu.eai.developer.controllers.NameOnlyCreateController;
 import be.nabu.eai.developer.managers.util.ElementMarshallable;
 import be.nabu.eai.developer.managers.util.RootElementWithPush;
+import be.nabu.eai.developer.managers.util.SimpleProperty;
+import be.nabu.eai.developer.managers.util.SimplePropertyUpdater;
+import be.nabu.eai.developer.util.EAIDeveloperUtils;
 import be.nabu.eai.developer.util.ElementClipboardHandler;
 import be.nabu.eai.developer.util.ElementSelectionListener;
 import be.nabu.eai.developer.util.ElementTreeItem;
@@ -43,6 +46,7 @@ import be.nabu.jfx.control.tree.Updateable;
 import be.nabu.jfx.control.tree.drag.TreeDragDrop;
 import be.nabu.jfx.control.tree.drag.TreeDragListener;
 import be.nabu.jfx.control.tree.drag.TreeDropListener;
+import be.nabu.libs.property.api.Property;
 import be.nabu.libs.types.SimpleTypeWrapperFactory;
 import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.api.DefinedType;
@@ -85,20 +89,20 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 	@Override
 	public ArtifactGUIInstance create(final MainController controller, final TreeItem<Entry> target) throws IOException {
 		this.controller = controller;
-		FXMLLoader loader = controller.load("new.nameOnly.fxml", "Create Structure", true);
-		final NameOnlyCreateController createController = loader.getController();
+		List<Property<?>> properties = new ArrayList<Property<?>>();
+		properties.add(new SimpleProperty<String>("Name", String.class, true));
+		final SimplePropertyUpdater updater = new SimplePropertyUpdater(true, new LinkedHashSet<Property<?>>(properties));
 		final StructureGUIInstance instance = new StructureGUIInstance(this);
-		createController.getBtnCreate().addEventHandler(MouseEvent.MOUSE_CLICKED, new EventHandler<MouseEvent>() {
+		EAIDeveloperUtils.buildPopup(controller, updater, "Create JDBC Service", new EventHandler<MouseEvent>() {
 			@Override
 			public void handle(MouseEvent arg0) {
 				try {
-					String name = createController.getTxtName().getText();
+					String name = updater.getValue("Name");
 					RepositoryEntry entry = ((RepositoryEntry) target.itemProperty().get()).createNode(name, getArtifactManager(), true);
 					DefinedStructure structure = new DefinedStructure();
 					structure.setName("root");
 					getArtifactManager().save(entry, structure);
 					controller.getRepositoryBrowser().refresh();
-					createController.close();
 					Tab tab = controller.newTab(entry.getId(), instance);
 					AnchorPane pane = new AnchorPane();
 					tab.setContent(pane);
