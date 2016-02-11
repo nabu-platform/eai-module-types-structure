@@ -38,6 +38,7 @@ import be.nabu.eai.developer.util.ElementSelectionListener;
 import be.nabu.eai.developer.util.ElementTreeItem;
 import be.nabu.eai.repository.api.ArtifactManager;
 import be.nabu.eai.repository.api.Entry;
+import be.nabu.eai.repository.impl.PropertyUpdatedEventImpl;
 import be.nabu.eai.repository.resources.RepositoryEntry;
 import be.nabu.jfx.control.tree.Tree;
 import be.nabu.jfx.control.tree.TreeCell;
@@ -46,6 +47,8 @@ import be.nabu.jfx.control.tree.Updateable;
 import be.nabu.jfx.control.tree.drag.TreeDragDrop;
 import be.nabu.jfx.control.tree.drag.TreeDragListener;
 import be.nabu.jfx.control.tree.drag.TreeDropListener;
+import be.nabu.libs.events.api.EventDispatcher;
+import be.nabu.libs.events.impl.EventDispatcherImpl;
 import be.nabu.libs.property.api.Property;
 import be.nabu.libs.types.SimpleTypeWrapperFactory;
 import be.nabu.libs.types.api.ComplexType;
@@ -58,6 +61,7 @@ import be.nabu.libs.types.api.Type;
 import be.nabu.libs.types.base.ComplexElementImpl;
 import be.nabu.libs.types.base.SimpleElementImpl;
 import be.nabu.libs.types.java.BeanResolver;
+import be.nabu.libs.types.properties.NameProperty;
 import be.nabu.libs.types.structure.DefinedStructure;
 import be.nabu.libs.types.structure.Structure;
 import be.nabu.libs.validator.api.ValidationMessage;
@@ -65,6 +69,8 @@ import be.nabu.libs.validator.api.ValidationMessage;
 public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure> {
 	
 	private MainController controller;
+	
+	private EventDispatcher dispatcher = new EventDispatcherImpl();
 
 	@Override
 	public ArtifactManager<DefinedStructure> getArtifactManager() {
@@ -147,7 +153,10 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 			new Updateable<Element<?>>() {
 				@Override
 				public Element<?> update(TreeCell<Element<?>> cell, String name) {
-					ElementTreeItem.rename(controller, cell.getItem(), name);
+					String oldValue = cell.getItem().getName();
+					if (ElementTreeItem.rename(controller, cell.getItem(), name)) {
+						dispatcher.fire(new PropertyUpdatedEventImpl(cell.getItem(), NameProperty.getInstance(), name, oldValue), this);
+					}
 					return cell.getItem().itemProperty().get();
 				}
 			});
@@ -385,4 +394,9 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 	public Class<DefinedStructure> getArtifactClass() {
 		return getArtifactManager().getArtifactClass();
 	}
+
+	public EventDispatcher getDispatcher() {
+		return dispatcher;
+	}
+	
 }
