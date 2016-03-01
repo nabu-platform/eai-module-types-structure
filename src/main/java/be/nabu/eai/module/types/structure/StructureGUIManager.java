@@ -77,10 +77,11 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		return new StructureManager();
 	}
 
-	@Override
-	public String getCategory() {
-		return "Types";
-	}
+	// even though it belongs in "types", put it in the main tree
+//	@Override
+//	public String getCategory() {
+//		return "Types";
+//	}
 	
 	@Override
 	public String getArtifactName() {
