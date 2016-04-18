@@ -99,7 +99,7 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		properties.add(new SimpleProperty<String>("Name", String.class, true));
 		final SimplePropertyUpdater updater = new SimplePropertyUpdater(true, new LinkedHashSet<Property<?>>(properties));
 		final StructureGUIInstance instance = new StructureGUIInstance(this);
-		EAIDeveloperUtils.buildPopup(controller, updater, "Create JDBC Service", new EventHandler<MouseEvent>() {
+		EAIDeveloperUtils.buildPopup(controller, updater, "Create Structure", new EventHandler<MouseEvent>() {
 			@Override
 			public void handle(MouseEvent arg0) {
 				try {
