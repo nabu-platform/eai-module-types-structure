@@ -161,6 +161,7 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 				}
 			});
 		tree.rootProperty().set(new ElementTreeItem(element, null, isEditable, allowNonLocalModification));
+		tree.getTreeCell(tree.rootProperty().get()).expandedProperty().set(true);
 		tree.setClipboardHandler(new ElementClipboardHandler(tree));
 		
 		tree.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
