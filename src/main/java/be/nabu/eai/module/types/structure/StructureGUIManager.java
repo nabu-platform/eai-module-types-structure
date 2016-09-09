@@ -13,12 +13,15 @@ import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
 import javafx.event.Event;
 import javafx.event.EventHandler;
+import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SelectionMode;
 import javafx.scene.control.Tab;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.DragEvent;
+import javafx.scene.input.Dragboard;
 import javafx.scene.input.TransferMode;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.HBox;
@@ -27,6 +30,7 @@ import javafx.scene.layout.VBox;
 import be.nabu.eai.developer.MainController;
 import be.nabu.eai.developer.api.ArtifactGUIInstance;
 import be.nabu.eai.developer.api.ArtifactGUIManager;
+import be.nabu.eai.developer.components.RepositoryBrowser;
 import be.nabu.eai.developer.managers.util.ElementMarshallable;
 import be.nabu.eai.developer.managers.util.RootElementWithPush;
 import be.nabu.eai.developer.managers.util.SimpleProperty;
@@ -46,6 +50,7 @@ import be.nabu.jfx.control.tree.Updateable;
 import be.nabu.jfx.control.tree.drag.TreeDragDrop;
 import be.nabu.jfx.control.tree.drag.TreeDragListener;
 import be.nabu.jfx.control.tree.drag.TreeDropListener;
+import be.nabu.libs.artifacts.api.Artifact;
 import be.nabu.libs.events.api.EventDispatcher;
 import be.nabu.libs.events.impl.EventDispatcherImpl;
 import be.nabu.libs.property.api.Property;
@@ -234,6 +239,47 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 			@Override
 			public void stopDrag(TreeCell<Element<?>> arg0, boolean successful) {
 				// do nothing
+			}
+		});
+		tree.addEventHandler(DragEvent.DRAG_OVER, new EventHandler<DragEvent>() {
+			@Override
+			public void handle(DragEvent event) {
+				Dragboard dragboard = event.getDragboard();
+				if (dragboard != null) {
+					Object content = dragboard.getContent(TreeDragDrop.getDataFormat(RepositoryBrowser.getDataType(DefinedType.class)));
+					// this will be the path in the tree
+					if (content != null) {
+						Artifact artifact = controller.getRepository().resolve((String) content);
+						if (artifact instanceof Type) {
+							event.acceptTransferModes(TransferMode.MOVE);
+							event.consume();
+						}
+					}
+				}
+			}
+		});
+		tree.addEventHandler(DragEvent.DRAG_DROPPED, new EventHandler<DragEvent>() {
+			@SuppressWarnings("unchecked")
+			@Override
+			public void handle(DragEvent event) {
+				Dragboard dragboard = event.getDragboard();
+				if (dragboard != null) {
+					Object content = dragboard.getContent(TreeDragDrop.getDataFormat(RepositoryBrowser.getDataType(DefinedType.class)));
+					if (content != null) {
+						Artifact artifact = controller.getRepository().resolve((String) content);
+						if (artifact instanceof Type) {
+							TreeCell<Element<?>> target = (TreeCell<Element<?>>) ((Node) event.getTarget()).getUserData();
+							if (target != null) {
+								controller.notify(
+									addElement(target.getItem().itemProperty().get(), (Type) artifact, ElementTreeItem.UNNAMED + ElementTreeItem.getLastCounter((ComplexType) target.getItem().itemProperty().get().getType()))
+									.toArray(new ValidationMessage[0]));
+								target.refresh();
+								MainController.getInstance().setChanged();
+								event.consume();
+							}
+						}
+					}
+				}
 			}
 		});
 		// can only make it drag/droppable after it's added because it needs the scene
