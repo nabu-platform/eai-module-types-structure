@@ -8,6 +8,7 @@ import be.nabu.eai.developer.MainController;
 import be.nabu.eai.developer.api.RefresheableArtifactGUIInstance;
 import be.nabu.eai.repository.api.Entry;
 import be.nabu.eai.repository.resources.RepositoryEntry;
+import be.nabu.libs.artifacts.api.Artifact;
 import be.nabu.libs.types.structure.DefinedStructure;
 import be.nabu.libs.validator.api.Validation;
 
@@ -84,5 +85,10 @@ public class StructureGUIInstance implements RefresheableArtifactGUIInstance {
 		catch (Exception e) {
 			throw new RuntimeException("Could not refresh: " + getId(), e);
 		}
+	}
+
+	@Override
+	public Artifact getArtifact() {
+		return structure;
 	}
 }
