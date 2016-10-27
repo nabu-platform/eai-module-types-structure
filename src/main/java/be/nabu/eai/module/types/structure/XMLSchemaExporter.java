@@ -9,8 +9,11 @@ import be.nabu.eai.developer.api.EntryContextMenuProvider;
 import be.nabu.eai.developer.util.Confirm;
 import be.nabu.eai.developer.util.Confirm.ConfirmType;
 import be.nabu.eai.repository.api.Entry;
+import be.nabu.libs.property.ValueUtils;
 import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.definition.xsd.XSDDefinitionMarshaller;
+import be.nabu.libs.types.properties.AttributeQualifiedDefaultProperty;
+import be.nabu.libs.types.properties.ElementQualifiedDefaultProperty;
 
 public class XMLSchemaExporter implements EntryContextMenuProvider {
 
@@ -24,6 +27,14 @@ public class XMLSchemaExporter implements EntryContextMenuProvider {
 					try {
 						ComplexType complex = (ComplexType) entry.getNode().getArtifact();
 						XSDDefinitionMarshaller marshaller = new XSDDefinitionMarshaller();
+						Boolean value = ValueUtils.getValue(ElementQualifiedDefaultProperty.getInstance(), complex.getProperties());
+						if (value != null && value) {
+							marshaller.setIsElementQualified(true);
+						}
+						value = ValueUtils.getValue(AttributeQualifiedDefaultProperty.getInstance(), complex.getProperties());
+						if (value != null && value) {
+							marshaller.setIsAttributeQualified(true);
+						}
 						ByteArrayOutputStream output = new ByteArrayOutputStream();
 						marshaller.marshal(output, complex);
 						Confirm.confirm(ConfirmType.INFORMATION, "XML Schema: " + entry.getId(), new String(output.toByteArray(), "UTF-8"), null);
