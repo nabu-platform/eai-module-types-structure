@@ -1,7 +1,5 @@
 package be.nabu.eai.module.types.structure;
 
-import java.io.ByteArrayOutputStream;
-
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.scene.control.MenuItem;
@@ -35,9 +33,13 @@ public class XMLSchemaExporter implements EntryContextMenuProvider {
 						if (value != null && value) {
 							marshaller.setIsAttributeQualified(true);
 						}
-						ByteArrayOutputStream output = new ByteArrayOutputStream();
-						marshaller.marshal(output, complex);
-						Confirm.confirm(ConfirmType.INFORMATION, "XML Schema: " + entry.getId(), new String(output.toByteArray(), "UTF-8"), null);
+						
+						marshaller.define(complex);
+						Confirm.confirm(ConfirmType.INFORMATION, "XML Schema", GenerateXSDMenuEntry.stringify(marshaller), null);
+						
+//						ByteArrayOutputStream output = new ByteArrayOutputStream();
+//						marshaller.marshal(output, complex);
+//						Confirm.confirm(ConfirmType.INFORMATION, "XML Schema: " + entry.getId(), new String(output.toByteArray(), "UTF-8"), null);
 					}
 					catch (Exception e) {
 						throw new RuntimeException(e);
