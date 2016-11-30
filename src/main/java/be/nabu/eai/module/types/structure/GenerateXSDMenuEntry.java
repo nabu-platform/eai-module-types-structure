@@ -7,6 +7,7 @@ import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -38,19 +39,24 @@ import be.nabu.eai.developer.managers.util.SimplePropertyUpdater;
 import be.nabu.eai.developer.util.Confirm;
 import be.nabu.eai.developer.util.Confirm.ConfirmType;
 import be.nabu.eai.developer.util.EAIDeveloperUtils;
+import be.nabu.eai.repository.EAIRepositoryUtils;
 import be.nabu.libs.property.api.Property;
 import be.nabu.libs.property.api.Value;
+import be.nabu.libs.types.BaseTypeInstance;
 import be.nabu.libs.types.SimpleTypeWrapperFactory;
 import be.nabu.libs.types.TypeRegistryImpl;
+import be.nabu.libs.types.TypeUtils;
 import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.api.ModifiableTypeRegistry;
 import be.nabu.libs.types.api.SimpleType;
+import be.nabu.libs.types.api.Unmarshallable;
 import be.nabu.libs.types.base.ComplexElementImpl;
 import be.nabu.libs.types.base.SimpleElementImpl;
 import be.nabu.libs.types.base.ValueImpl;
 import be.nabu.libs.types.definition.xsd.XSDDefinitionMarshaller;
 import be.nabu.libs.types.properties.FormatProperty;
 import be.nabu.libs.types.properties.MaxOccursProperty;
+import be.nabu.libs.types.properties.MinOccursProperty;
 import be.nabu.libs.types.structure.Structure;
 
 public class GenerateXSDMenuEntry implements MainMenuEntry {
@@ -79,7 +85,7 @@ public class GenerateXSDMenuEntry implements MainMenuEntry {
 						if (content != null) {
 							Document document = toDocument(new ByteArrayInputStream(content.getBytes(Charset.defaultCharset())));
 							Structure root = new Structure();
-							root.setName(document.getDocumentElement().getLocalName());
+							root.setName(EAIRepositoryUtils.stringToField(document.getDocumentElement().getLocalName()));
 							root.setNamespace(document.getDocumentElement().getNamespaceURI());
 							TypeRegistryImpl registry = new TypeRegistryImpl();
 							registry.register(root);
@@ -121,12 +127,42 @@ public class GenerateXSDMenuEntry implements MainMenuEntry {
 		return builder.toString();
 	}
 	
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private static void enrich(Element element, Structure current, ModifiableTypeRegistry registry) {
+		boolean isNew = TypeUtils.getAllChildren(current).size() == 0;
 		NamedNodeMap attributes = element.getAttributes();
+		Set<String> foundElements = new HashSet<String>();
 		for (int i = 0; i < attributes.getLength(); i++) {
 			Node item = attributes.item(i);
-			current.add(guessSimpleType("@" + item.getNodeName(), item.getTextContent(), current));
+			// don't add namespace definitions as attribute
+			if (item.getNodeName().equals("xmlns")) {
+				continue;
+			}
+			else if (item.getNodeName().startsWith("xmlns:")) {
+				continue;
+			}
+			if (item.getTextContent() != null && !item.getTextContent().isEmpty()) {
+				foundElements.add("@" + item.getNodeName());
+			}
+			be.nabu.libs.types.api.Element<?> currentElement = current.get("@" + item.getNodeName());
+			if (currentElement == null) {
+				current.add(guessSimpleType("@" + item.getNodeName(), item.getTextContent(), current));
+				// if the parent structure was not "new" when it came in, that means the previous iteration (that originall built it) does not have this field
+				if (!isNew) {
+					current.get("@" + item.getNodeName()).setProperty(new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0));
+				}
+			}
+			else if (!((SimpleType) currentElement.getType()).getInstanceClass().equals(String.class)) {
+				Unmarshallable unmarshallable = ((Unmarshallable) currentElement.getType());
+				try {
+					unmarshallable.unmarshal(item.getTextContent());
+				}
+				catch (Exception e) {
+					((BaseTypeInstance) currentElement).setType(SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class));
+				}
+			}
 		}
+		List<String> encounteredElements = new ArrayList<String>();
 		NodeList childNodes = element.getChildNodes();
 		for (int i = 0; i < childNodes.getLength(); i++) {
 			Node item = childNodes.item(i);
@@ -135,27 +171,98 @@ public class GenerateXSDMenuEntry implements MainMenuEntry {
 				be.nabu.libs.types.api.Element<?> currentElement = current.get(child.getLocalName());
 				if (currentElement == null) {
 					if (hasElementChildren(child)) {
-						Structure childStructure = new Structure();
-						childStructure.setName(child.getLocalName());
-						childStructure.setNamespace(child.getNamespaceURI());
+						foundElements.add(child.getLocalName());
+						Structure childStructure = getComplexType(registry, child);
 						enrich(child, childStructure, registry);
-						registry.register(childStructure);
-						current.add(new ComplexElementImpl(childStructure.getName(), childStructure, current));
+						current.add(new ComplexElementImpl(child.getLocalName(), childStructure, current));
+						
 					}
 					else {
+						if (child.getTextContent() != null && !child.getTextContent().isEmpty()) {
+							foundElements.add(child.getLocalName());
+						}
 						current.add(guessSimpleType(child, current));
+					}
+					if (!isNew) {
+						current.get(child.getLocalName()).setProperty(new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0));
 					}
 				}
 				else {
-					// make sure it's a list
-					currentElement.setProperty(new ValueImpl<Integer>(MaxOccursProperty.getInstance(), 0));
+					if (encounteredElements.contains(child.getLocalName())) {
+						// make sure it's a list
+						currentElement.setProperty(new ValueImpl<Integer>(MaxOccursProperty.getInstance(), 0));
+					}
+					else {
+						encounteredElements.add(child.getLocalName());
+					}
 					// make sure we get all the fields for complex types
 					if (currentElement.getType() instanceof Structure) {
+						foundElements.add(child.getLocalName());
 						enrich(child, (Structure) currentElement.getType(), registry);
+					}
+					else {
+						if (child.getTextContent() != null && !child.getTextContent().isEmpty()) {
+							foundElements.add(child.getLocalName());
+						}
+						if (!((SimpleType) currentElement.getType()).getInstanceClass().equals(String.class)) {
+							Unmarshallable unmarshallable = ((Unmarshallable) currentElement.getType());
+							try {
+								unmarshallable.unmarshal(child.getTextContent());
+							}
+							catch (Exception e) {
+								((BaseTypeInstance) currentElement).setType(SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class));
+							}
+						}
 					}
 				}
 			}
 		}
+		
+		for (be.nabu.libs.types.api.Element<?> childElement : TypeUtils.getAllChildren(current)) {
+			if (!foundElements.contains(childElement.getName()) && childElement.getProperty(MinOccursProperty.getInstance()) == null) {
+				childElement.setProperty(new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0));
+			}
+		}
+	}
+	
+	private static Structure getComplexType(ModifiableTypeRegistry registry, Element element) {
+		int lastConfirmed = -1;
+		// minimal match percentage to conclude that it's the same type
+		double matchPercentage = 0.3;
+		String localName = element.getLocalName();
+		localName = EAIRepositoryUtils.stringToField(localName);
+		for (int i = 0; i < 100; i++) {
+			Structure childStructure = (Structure) registry.getComplexType(element.getNamespaceURI(), localName + (i == 0 ? "" : i));
+			if (childStructure != null) {
+				lastConfirmed = i;
+				Set<String> names = new HashSet<String>();
+				NodeList childNodes = element.getChildNodes();
+				for (int j = 0; j < childNodes.getLength(); j++) {
+					Node item = childNodes.item(j);
+					if (item.getNodeType() == Node.ELEMENT_NODE) {
+						Element child = (Element) item;
+						names.add(child.getLocalName());
+					}
+				}
+				double hits = 0, misses = 0;
+				for (be.nabu.libs.types.api.Element<?> child : TypeUtils.getAllChildren(childStructure)) {
+					if (names.contains(child.getName())) {
+						hits++;
+					}
+					else {
+						misses++;
+					}
+				}
+				if (hits / (hits + misses) >= matchPercentage) {
+					return childStructure;
+				}
+			}
+		}
+		Structure childStructure = new Structure();
+		childStructure.setName(localName + (lastConfirmed < 0 ? "" : lastConfirmed + 1));
+		childStructure.setNamespace(element.getNamespaceURI());
+		registry.register(childStructure);
+		return childStructure;
 	}
 	
 	private static be.nabu.libs.types.api.Element<?> guessSimpleType(Element element, Structure parent) {
