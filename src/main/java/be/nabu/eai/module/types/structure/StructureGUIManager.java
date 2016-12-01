@@ -171,6 +171,8 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		tree.getTreeCell(tree.rootProperty().get()).expandedProperty().set(true);
 		tree.setClipboardHandler(new ElementClipboardHandler(tree));
 		
+		ElementTreeItem.setListeners(tree);
+		
 		tree.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
 
 		HBox allButtons = new HBox();
