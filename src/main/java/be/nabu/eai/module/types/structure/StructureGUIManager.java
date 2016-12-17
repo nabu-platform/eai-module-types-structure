@@ -7,6 +7,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.UUID;
 
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
@@ -185,6 +186,7 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		buttons.getChildren().add(createAddButton(tree, String.class));
 		buttons.getChildren().add(createAddButton(tree, Date.class));
 		buttons.getChildren().add(createAddButton(tree, Boolean.class));
+		buttons.getChildren().add(createAddButton(tree, UUID.class));
 		buttons.getChildren().add(createAddButton(tree, Integer.class));
 		buttons.getChildren().add(createAddButton(tree, Long.class));
 		buttons.getChildren().add(createAddButton(tree, Float.class));
