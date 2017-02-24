@@ -23,8 +23,6 @@ import javafx.scene.control.Tooltip;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.DragEvent;
 import javafx.scene.input.Dragboard;
-import javafx.scene.input.KeyCode;
-import javafx.scene.input.KeyEvent;
 import javafx.scene.input.TransferMode;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.HBox;
@@ -247,20 +245,7 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 				// do nothing
 			}
 		});
-		tree.addEventHandler(KeyEvent.KEY_PRESSED, new EventHandler<KeyEvent>() {
-			@Override
-			public void handle(KeyEvent event) {
-				if (event.getCode() == KeyCode.E && event.isControlDown()) {
-					TreeCell<Element<?>> selectedItem = tree.getSelectionModel().getSelectedItem();
-					if (event.isShiftDown()) {
-						selectedItem.expandedProperty().set(true);
-					}
-					else {
-						selectedItem.expandAll(3);
-					}
-				}				
-			}
-		});
+		EAIDeveloperUtils.addElementExpansionHandler(tree);
 		tree.addEventHandler(DragEvent.DRAG_OVER, new EventHandler<DragEvent>() {
 			@Override
 			public void handle(DragEvent event) {
@@ -380,7 +365,7 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		});
 		return tree;
 	}
-	
+
 	private Button createAddButton(Tree<Element<?>> tree, Class<?> clazz) {
 		Button button = new Button();
 		button.setTooltip(new Tooltip(clazz.getSimpleName()));
