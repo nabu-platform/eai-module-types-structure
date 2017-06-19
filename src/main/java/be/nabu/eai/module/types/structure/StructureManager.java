@@ -57,7 +57,7 @@ public class StructureManager implements ArtifactManager<DefinedStructure> {
 
 	@Override
 	public DefinedStructure load(ResourceEntry entry, List<Validation<?>> messages) throws IOException, ParseException {
-		DefinedStructure structure = (DefinedStructure) parse(entry, "structure.xml");
+		DefinedStructure structure = (DefinedStructure) parse(entry, "structure.xml", messages);
 		structure.setId(entry.getId());
 		return structure;
 	}
@@ -87,16 +87,26 @@ public class StructureManager implements ArtifactManager<DefinedStructure> {
 	}
 	
 	public static Structure parse(ResourceEntry entry, String name) throws FileNotFoundException, IOException, ParseException {
+		return parse(entry, name, null);
+	}
+	
+	public static Structure parse(ResourceEntry entry, String name, List<Validation<?>> validations) throws FileNotFoundException, IOException, ParseException {
 		Resource resource = entry.getContainer().getChild(name);
 		if (resource == null) {
 			throw new FileNotFoundException("Can not find structure.xml");
 		}
 		XMLDefinitionUnmarshaller unmarshaller = getLocalizedUnmarshaller(entry);
+		unmarshaller.setIgnoreUnknown(validations != null);
 		ReadableContainer<ByteBuffer> readable = new ResourceReadableContainer((ReadableResource) resource);
 		try {
 			unmarshaller.setIdToUnmarshal(entry.getId());
 			// evil cast!
 			Structure structure = (Structure) unmarshaller.unmarshal(IOUtils.toInputStream(readable));
+			if (validations != null) {
+				for (String ignoredReference : unmarshaller.getIgnoredReferences()) {
+					validations.add(new ValidationMessage(Severity.ERROR, "Could not find reference '" + ignoredReference + "', it has been removed"));
+				}
+			}
 			return structure;
 		}
 		finally {

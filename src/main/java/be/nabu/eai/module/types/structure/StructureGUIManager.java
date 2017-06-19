@@ -47,6 +47,7 @@ import be.nabu.eai.repository.resources.RepositoryEntry;
 import be.nabu.jfx.control.tree.Tree;
 import be.nabu.jfx.control.tree.TreeCell;
 import be.nabu.jfx.control.tree.TreeItem;
+import be.nabu.jfx.control.tree.TreeUtils;
 import be.nabu.jfx.control.tree.Updateable;
 import be.nabu.jfx.control.tree.drag.TreeDragDrop;
 import be.nabu.jfx.control.tree.drag.TreeDragListener;
@@ -60,6 +61,7 @@ import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.api.DefinedType;
 import be.nabu.libs.types.api.Element;
 import be.nabu.libs.types.api.ModifiableComplexType;
+import be.nabu.libs.types.api.ModifiableElement;
 import be.nabu.libs.types.api.ModifiableTypeInstance;
 import be.nabu.libs.types.api.SimpleType;
 import be.nabu.libs.types.api.Type;
@@ -70,6 +72,7 @@ import be.nabu.libs.types.properties.NameProperty;
 import be.nabu.libs.types.structure.DefinedStructure;
 import be.nabu.libs.types.structure.Structure;
 import be.nabu.libs.validator.api.ValidationMessage;
+import be.nabu.libs.validator.api.ValidationMessage.Severity;
 
 public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure> {
 	
@@ -211,9 +214,11 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		tree.getSelectionModel().selectedItemProperty().addListener(new ChangeListener<TreeCell<Element<?>>>() {
 			@Override
 			public void changed(ObservableValue<? extends TreeCell<Element<?>>> arg0, TreeCell<Element<?>> arg1, TreeCell<Element<?>> arg2) {
-				// disable all buttons
-				Type type = arg2.getItem().itemProperty().get().getType();
-				buttons.disableProperty().set(!(type instanceof ModifiableComplexType) || !arg2.getItem().editableProperty().get());
+				if (arg2 != null) {
+					// disable all buttons
+					Type type = arg2.getItem().itemProperty().get().getType();
+					buttons.disableProperty().set(!(type instanceof ModifiableComplexType) || !arg2.getItem().editableProperty().get());
+				}
 			}
 		});
 		
@@ -280,6 +285,7 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 									.toArray(new ValidationMessage[0]));
 								target.refresh();
 								MainController.getInstance().setChanged();
+								MainController.getInstance().closeDragSource();
 								event.consume();
 							}
 						}
@@ -325,11 +331,18 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 						newParent = (ModifiableComplexType) target.getItem().itemProperty().get().getType();
 					}
 					TreeCell<Element<?>> draggedElement = (TreeCell<Element<?>>) dragged;
-					ModifiableComplexType originalParent = (ModifiableComplexType) draggedElement.getItem().getParent().itemProperty().get().getType();
+					String fromPath = TreeUtils.getPath(draggedElement.getItem());
 					// if there are no validation errors when adding, remove the old one
+					ModifiableComplexType originalParent = (ModifiableComplexType) draggedElement.getItem().itemProperty().get().getParent();
 					List<ValidationMessage> messages = newParent.add(draggedElement.getItem().itemProperty().get());
 					if (messages.isEmpty()) {
+						// remove by the actual parent, not the tree parent (e.g. for pipeline extensions)
 						originalParent.remove(draggedElement.getItem().itemProperty().get());
+						// make sure someone else didn't update the parent (e.g. pipeline extension)
+						if (draggedElement.getItem().itemProperty().get() instanceof ModifiableElement && draggedElement.getItem().itemProperty().get().getParent().equals(originalParent)) {
+							// update the parent
+							((ModifiableElement<?>) draggedElement.getItem().itemProperty().get()).setParent(newParent);
+						}
 					}
 					else {
 						controller.notify(messages.toArray(new ValidationMessage[0]));
@@ -337,6 +350,22 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 					// refresh both, in this specific order! or the parent will be the new one
 					dragged.getParent().refresh();
 					target.refresh();
+
+					if (messages.isEmpty()) {
+						String toPath = null;
+						for (TreeItem<Element<?>> item : target.getItem().getChildren()) {
+							if (item.getName().equals(draggedElement.getItem().itemProperty().get().getName())) {
+								toPath = TreeUtils.getPath(item);
+							}
+						}
+						if (toPath != null) {
+							ElementTreeItem.renameVariable(controller, fromPath, toPath);
+						}
+						else {
+							MainController.getInstance().notify(new ValidationMessage(Severity.ERROR, "Could not refactor " + draggedElement.getItem().itemProperty().get().getName()));
+						}
+					}
+							
 					MainController.getInstance().setChanged();
 //					((ElementTreeItem) target.getItem()).refresh();
 //					((ElementTreeItem) dragged.getParent().getItem()).refresh();
@@ -352,6 +381,7 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 								.toArray(new ValidationMessage[0]));
 							target.refresh();
 							MainController.getInstance().setChanged();
+							MainController.getInstance().closeDragSource();
 						}
 					}
 					catch (IOException e) {
