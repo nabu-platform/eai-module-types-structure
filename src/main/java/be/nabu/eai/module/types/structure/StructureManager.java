@@ -93,7 +93,7 @@ public class StructureManager implements ArtifactManager<DefinedStructure> {
 	public static Structure parse(ResourceEntry entry, String name, List<Validation<?>> validations) throws FileNotFoundException, IOException, ParseException {
 		Resource resource = entry.getContainer().getChild(name);
 		if (resource == null) {
-			throw new FileNotFoundException("Can not find structure.xml");
+			throw new FileNotFoundException("Can not find: " + name);
 		}
 		XMLDefinitionUnmarshaller unmarshaller = getLocalizedUnmarshaller(entry);
 		unmarshaller.setIgnoreUnknown(validations != null);
