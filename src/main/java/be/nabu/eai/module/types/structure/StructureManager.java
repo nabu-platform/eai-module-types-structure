@@ -2,17 +2,20 @@ package be.nabu.eai.module.types.structure;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import be.nabu.eai.repository.EAIRepositoryUtils;
 import be.nabu.eai.repository.EAIResourceRepository;
 import be.nabu.eai.repository.RepositoryServiceInterfaceResolver;
 import be.nabu.eai.repository.RepositoryServiceResolver;
 import be.nabu.eai.repository.RepositorySimpleTypeWrapper;
 import be.nabu.eai.repository.RepositoryTypeResolver;
 import be.nabu.eai.repository.api.ArtifactManager;
+import be.nabu.eai.repository.api.BrokenReferenceArtifactManager;
 import be.nabu.eai.repository.api.Entry;
 import be.nabu.eai.repository.api.ModifiableNodeEntry;
 import be.nabu.eai.repository.api.ResourceEntry;
@@ -26,6 +29,7 @@ import be.nabu.libs.resources.ResourceWritableContainer;
 import be.nabu.libs.resources.api.ManageableContainer;
 import be.nabu.libs.resources.api.ReadableResource;
 import be.nabu.libs.resources.api.Resource;
+import be.nabu.libs.resources.api.ResourceContainer;
 import be.nabu.libs.resources.api.WritableResource;
 import be.nabu.libs.services.pojo.converters.StringToDefinedService;
 import be.nabu.libs.services.pojo.converters.StringToDefinedServiceInterface;
@@ -53,7 +57,7 @@ import be.nabu.utils.io.api.ByteBuffer;
 import be.nabu.utils.io.api.ReadableContainer;
 import be.nabu.utils.io.api.WritableContainer;
 
-public class StructureManager implements ArtifactManager<DefinedStructure> {
+public class StructureManager implements ArtifactManager<DefinedStructure>, BrokenReferenceArtifactManager<DefinedStructure> {
 
 	@Override
 	public DefinedStructure load(ResourceEntry entry, List<Validation<?>> messages) throws IOException, ParseException {
@@ -224,6 +228,19 @@ public class StructureManager implements ArtifactManager<DefinedStructure> {
 	@Override
 	public List<Validation<?>> updateReference(DefinedStructure artifact, String from, String to) throws IOException {
 		return updateReferences(artifact, from, to);
+	}
+
+	@Override
+	public List<Validation<?>> updateBrokenReference(ResourceContainer<?> container, String from, String to) throws IOException {
+		List<Validation<?>> messages = new ArrayList<Validation<?>>();
+		Resource child = container.getChild("structure.xml");
+		// we don't know the name of the configuration file but we do know that it is an xml
+		// rewrite any and all xmls
+		// this might be troublesome for some particular extensions but they need to override the behavior then
+		if (child != null) {
+			EAIRepositoryUtils.updateBrokenReference(child, from, to, Charset.forName("UTF-8"));
+		}
+		return messages;
 	}
 
 }

@@ -56,6 +56,7 @@ import be.nabu.libs.artifacts.api.Artifact;
 import be.nabu.libs.events.api.EventDispatcher;
 import be.nabu.libs.events.impl.EventDispatcherImpl;
 import be.nabu.libs.property.api.Property;
+import be.nabu.libs.property.api.Value;
 import be.nabu.libs.types.SimpleTypeWrapperFactory;
 import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.api.DefinedType;
@@ -67,7 +68,10 @@ import be.nabu.libs.types.api.SimpleType;
 import be.nabu.libs.types.api.Type;
 import be.nabu.libs.types.base.ComplexElementImpl;
 import be.nabu.libs.types.base.SimpleElementImpl;
+import be.nabu.libs.types.base.StringMapCollectionHandlerProvider;
+import be.nabu.libs.types.base.ValueImpl;
 import be.nabu.libs.types.java.BeanResolver;
+import be.nabu.libs.types.properties.CollectionHandlerProviderProperty;
 import be.nabu.libs.types.properties.NameProperty;
 import be.nabu.libs.types.structure.DefinedStructure;
 import be.nabu.libs.types.structure.Structure;
@@ -118,6 +122,11 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 					structure.setName("root");
 					getArtifactManager().save(entry, structure);
 					controller.getRepositoryBrowser().refresh();
+					
+					// reload
+					MainController.getInstance().getAsynchronousRemoteServer().reload(target.itemProperty().get().getId());
+					MainController.getInstance().getCollaborationClient().created(entry.getId(), "Created");
+					
 					Tab tab = controller.newTab(entry.getId(), instance);
 					AnchorPane pane = new AnchorPane();
 					tab.setContent(pane);
@@ -194,6 +203,7 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		buttons.getChildren().add(createAddButton(tree, Double.class));
 		buttons.getChildren().add(createAddButton(tree, Object.class));
 		buttons.getChildren().add(createAddButton(tree, byte[].class));
+//		buttons.getChildren().add(createAddMapButton(tree));
 		allButtons.getChildren().add(buttons);
 		
 		ScrollPane scrollPane = new ScrollPane();
@@ -404,8 +414,35 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		return button;
 	}
 	
+	@SuppressWarnings("unused")
+	private Button createAddMapButton(Tree<Element<?>> tree) {
+		Button button = new Button();
+		button.setTooltip(new Tooltip("Map"));
+		button.setGraphic(MainController.loadGraphic("types/map.gif"));
+		button.addEventHandler(ActionEvent.ACTION, new EventHandler<ActionEvent>() {
+			@SuppressWarnings({ "unchecked", "rawtypes" })
+			@Override
+			public void handle(ActionEvent arg0) {
+				TreeCell<Element<?>> selectedItem = tree.getSelectionModel().getSelectedItem();
+				if (selectedItem != null && selectedItem.getItem().editableProperty().get()) {
+					if (selectedItem.getItem().itemProperty().get().getType() instanceof ComplexType) {
+						ComplexType target = (ComplexType) selectedItem.getItem().itemProperty().get().getType();
+						controller.notify(addElement(selectedItem.getItem().itemProperty().get(), 
+								BeanResolver.getInstance().resolve(java.util.Map.class), 
+								ElementTreeItem.UNNAMED + ElementTreeItem.getLastCounter(target),
+								new ValueImpl(CollectionHandlerProviderProperty.getInstance(), new StringMapCollectionHandlerProvider())));
+					}
+					selectedItem.expandedProperty().set(true);
+					selectedItem.refresh();
+					MainController.getInstance().setChanged();
+				}
+			}
+		});
+		return button;
+	}
+	
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	private List<ValidationMessage> addElement(Element<?> element, Type type, String name) {
+	private List<ValidationMessage> addElement(Element<?> element, Type type, String name, Value<?>...values) {
 		ModifiableComplexType newParent;
 		// if the target is a defined type, we need to wrap an extension around it
 		if (element.getType() instanceof DefinedType && element.getParent() != null) {
@@ -418,8 +455,8 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 			newParent = (ModifiableComplexType) element.getType();
 		}
 		List<ValidationMessage> messages = newParent.add(type instanceof ComplexType 
-			? new ComplexElementImpl(name, (ComplexType) type, newParent)
-			: new SimpleElementImpl(name, (SimpleType<?>) type, newParent)
+			? new ComplexElementImpl(name, (ComplexType) type, newParent, values)
+			: new SimpleElementImpl(name, (SimpleType<?>) type, newParent, values)
 		);
 		return messages;
 	}
