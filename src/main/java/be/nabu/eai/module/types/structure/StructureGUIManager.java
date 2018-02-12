@@ -9,6 +9,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.UUID;
 
+import javafx.beans.binding.BooleanBinding;
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
@@ -31,6 +34,7 @@ import javafx.scene.layout.VBox;
 import be.nabu.eai.developer.MainController;
 import be.nabu.eai.developer.api.ArtifactGUIInstance;
 import be.nabu.eai.developer.api.ArtifactGUIManager;
+import be.nabu.eai.developer.api.ConfigurableGUIManager;
 import be.nabu.eai.developer.components.RepositoryBrowser;
 import be.nabu.eai.developer.managers.util.ElementMarshallable;
 import be.nabu.eai.developer.managers.util.RootElementWithPush;
@@ -78,12 +82,25 @@ import be.nabu.libs.types.structure.Structure;
 import be.nabu.libs.validator.api.ValidationMessage;
 import be.nabu.libs.validator.api.ValidationMessage.Severity;
 
-public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure> {
+public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>, ConfigurableGUIManager<DefinedStructure> {
 	
 	private MainController controller;
 	
 	private EventDispatcher dispatcher = new EventDispatcherImpl();
 
+	private java.util.Map<String, String> configuration;
+	public static final String ACTUAL_ID = "actualId";
+	
+	private String actualId;
+
+	public String isActualId() {
+		return actualId;
+	}
+
+	public void setActualId(String actualId) {
+		this.actualId = actualId;
+	}
+	
 	@Override
 	public ArtifactManager<DefinedStructure> getArtifactManager() {
 		return new StructureManager();
@@ -103,6 +120,14 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 	@Override
 	public ImageView getGraphic() {
 		return MainController.loadGraphic("types/structure.gif");
+	}
+	
+	@Override
+	public void setConfiguration(java.util.Map<String, String> configuration) {
+		this.configuration = configuration;
+	}
+	public String getId(DefinedStructure structure) {
+		return configuration == null || configuration.get(ACTUAL_ID) == null ? (actualId == null ? (structure == null ? null : structure.getId()) : actualId) : configuration.get(ACTUAL_ID);
 	}
 
 	@Override
@@ -182,10 +207,15 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		tree.getTreeCell(tree.rootProperty().get()).expandedProperty().set(true);
 		tree.setClipboardHandler(new ElementClipboardHandler(tree));
 		
-		ElementTreeItem.setListeners(tree);
+		String lockId = getId(null);
+		BooleanProperty locked = lockId == null ? new SimpleBooleanProperty(true) : controller.hasLock(lockId);
+		BooleanBinding notLocked = locked.not();
+
+		ElementTreeItem.setListeners(tree, locked);
 		
 		tree.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
 
+		
 		HBox allButtons = new HBox();
 		// buttons
 		final HBox buttons = new HBox();
@@ -206,6 +236,8 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 //		buttons.getChildren().add(createAddMapButton(tree));
 		allButtons.getChildren().add(buttons);
 		
+		allButtons.disableProperty().bind(notLocked);
+		
 		ScrollPane scrollPane = new ScrollPane();
 		VBox vbox = new VBox();
 		if (isEditable) {
@@ -219,7 +251,9 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		vbox.prefWidthProperty().bind(pane.widthProperty());
 		tree.prefWidthProperty().bind(vbox.widthProperty());
 		
-		tree.getSelectionModel().selectedItemProperty().addListener(new ElementSelectionListener(controller, true));
+		ElementSelectionListener elementSelectionListener = new ElementSelectionListener(controller, true);
+		elementSelectionListener.setActualId(lockId);
+		tree.getSelectionModel().selectedItemProperty().addListener(elementSelectionListener);
 		
 		tree.getSelectionModel().selectedItemProperty().addListener(new ChangeListener<TreeCell<Element<?>>>() {
 			@Override
@@ -237,7 +271,7 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 			public boolean canDrag(TreeCell<Element<?>> cell) {
 				// it can not be part of a defined type nor can it be the root
 				// also: the source type has to be modifiable because you will be dragging it from there
-				return cell.getItem().getParent() != null
+				return locked.get() && cell.getItem().getParent() != null
 					&& (cell.getItem().getParent().itemProperty().get().getType() instanceof ModifiableComplexType)
 					&& cell.getItem().getParent().editableProperty().get()
 					&& cell.getItem().editableProperty().get();
@@ -307,6 +341,9 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		TreeDragDrop.makeDroppable(tree, new TreeDropListener<Element<?>>() {
 			@Override
 			public boolean canDrop(String dataType, TreeCell<Element<?>> target, TreeCell<?> dragged, TransferMode transferMode) {
+				if (!locked.get()) {
+					return false;
+				}
 				// this drop listener is only interested in move events which mean it originates from its own tree
 				// or copy events (originates from the repository)
 				if (transferMode != TransferMode.MOVE && transferMode != TransferMode.COPY) {
