@@ -120,9 +120,13 @@ public class StructureManager implements ArtifactManager<DefinedStructure>, Brok
 
 	@Override
 	public List<Validation<?>> save(ResourceEntry entry, DefinedStructure artifact) throws IOException {
+		return this.saveContent(entry, artifact);
+	}
+	
+	public List<Validation<?>> saveContent(ResourceEntry entry, ComplexType artifact) throws IOException {
 		List<Validation<?>> messages = format(entry, artifact, "structure.xml");
 		if (entry instanceof ModifiableNodeEntry) {
-			((ModifiableNodeEntry) entry).updateNode(getReferences(artifact));
+			((ModifiableNodeEntry) entry).updateNode(getComplexReferences(artifact));
 		}
 		return messages;
 	}
