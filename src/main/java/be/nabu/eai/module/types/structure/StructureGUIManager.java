@@ -269,6 +269,10 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		TreeDragDrop.makeDraggable(tree, new TreeDragListener<Element<?>>() {
 			@Override
 			public boolean canDrag(TreeCell<Element<?>> cell) {
+				// if we specifically block moves, you can't drag it
+				if (cell.getItem() instanceof ElementTreeItem && !ElementTreeItem.canRename(cell.getItem())) {
+					return false;
+				}
 				// it can not be part of a defined type nor can it be the root
 				// also: the source type has to be modifiable because you will be dragging it from there
 				return locked.get() && cell.getItem().getParent() != null
