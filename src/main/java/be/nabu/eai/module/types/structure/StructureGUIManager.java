@@ -183,11 +183,15 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 	
 	DefinedStructure display(final MainController controller, Pane pane, Entry entry) throws IOException, ParseException {
 		DefinedStructure structure = (DefinedStructure) entry.getNode().getArtifact();
+		setActualId(structure.getId());
 		display(controller, pane, new RootElementWithPush(structure, true), entry.isEditable(), false);
 		return structure;
 	}
 	
 	public void display(final MainController controller, Pane pane, Structure structure) throws IOException, ParseException {
+		if (structure instanceof DefinedStructure) {
+			setActualId(((DefinedStructure) structure).getId());
+		}
 		display(controller, pane, new RootElementWithPush(structure, true), true, false);
 	}
 	public Tree<Element<?>> display(final MainController controller, Pane pane, Element<?> element, boolean isEditable, boolean allowNonLocalModification, Button...customButtons) throws IOException, ParseException {
@@ -248,6 +252,12 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		pane.getChildren().add(scrollPane);
 		
 		scrollPane.prefHeightProperty().bind(pane.heightProperty());
+		if (pane instanceof AnchorPane) {
+			AnchorPane.setBottomAnchor(scrollPane, 0d);
+			AnchorPane.setTopAnchor(scrollPane, 0d);
+			AnchorPane.setLeftAnchor(scrollPane, 0d);
+			AnchorPane.setRightAnchor(scrollPane, 0d);
+		}
 		vbox.prefWidthProperty().bind(pane.widthProperty());
 		tree.prefWidthProperty().bind(vbox.widthProperty());
 		
