@@ -32,6 +32,7 @@ import javafx.scene.input.TransferMode;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import be.nabu.eai.developer.MainController;
 import be.nabu.eai.developer.api.ArtifactGUIInstance;
@@ -262,27 +263,38 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		
 		allButtons.disableProperty().bind(notLocked);
 		
-		allButtons.setPadding(new Insets(10));
-		allButtons.setAlignment(Pos.TOP_LEFT);
+		allButtons.setPadding(new Insets(10, 5, 0, 5));
+		allButtons.setAlignment(Pos.BOTTOM_CENTER);
 		
 		ScrollPane scrollPane = new ScrollPane();
 		VBox vbox = new VBox();
 		if (isEditable) {
 			vbox.getChildren().add(allButtons);	
 		}
-		vbox.getChildren().add(tree);
-		scrollPane.setContent(vbox);
-		pane.getChildren().add(scrollPane);
+		vbox.getChildren().add(scrollPane);
+		scrollPane.setContent(tree);
+		pane.getChildren().add(vbox);
+		VBox.setVgrow(scrollPane, Priority.ALWAYS);
+		
+		HBox moveButtons = new HBox();
+		moveButtons.getChildren().add(createMoveButton(tree, Direction.LEFT, notLocked));
+		moveButtons.getChildren().add(createMoveButton(tree, Direction.RIGHT, notLocked));
+		moveButtons.getChildren().add(createMoveButton(tree, Direction.UP, notLocked));
+		moveButtons.getChildren().add(createMoveButton(tree, Direction.DOWN, notLocked));
+		moveButtons.setAlignment(Pos.TOP_CENTER);
+		moveButtons.setPadding(new Insets(0, 5, 10, 5));
+		vbox.getChildren().add(moveButtons);
 		
 		scrollPane.prefHeightProperty().bind(pane.heightProperty());
 		if (pane instanceof AnchorPane) {
-			AnchorPane.setBottomAnchor(scrollPane, 0d);
-			AnchorPane.setTopAnchor(scrollPane, 0d);
-			AnchorPane.setLeftAnchor(scrollPane, 0d);
-			AnchorPane.setRightAnchor(scrollPane, 0d);
+			AnchorPane.setBottomAnchor(vbox, 0d);
+			AnchorPane.setTopAnchor(vbox, 0d);
+			AnchorPane.setLeftAnchor(vbox, 0d);
+			AnchorPane.setRightAnchor(vbox, 0d);
 		}
 		vbox.prefWidthProperty().bind(pane.widthProperty());
-		tree.prefWidthProperty().bind(vbox.widthProperty());
+		// minus scrollbar
+		tree.prefWidthProperty().bind(vbox.widthProperty().subtract(25));
 		
 		ElementSelectionListener elementSelectionListener = new ElementSelectionListener(controller, true);
 		elementSelectionListener.setActualId(lockId);
