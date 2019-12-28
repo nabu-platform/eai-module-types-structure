@@ -17,6 +17,8 @@ import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
 import javafx.event.Event;
 import javafx.event.EventHandler;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ScrollPane;
@@ -48,11 +50,13 @@ import be.nabu.eai.repository.api.ArtifactManager;
 import be.nabu.eai.repository.api.Entry;
 import be.nabu.eai.repository.impl.PropertyUpdatedEventImpl;
 import be.nabu.eai.repository.resources.RepositoryEntry;
+import be.nabu.jfx.control.tree.MovableTreeItem;
 import be.nabu.jfx.control.tree.Tree;
 import be.nabu.jfx.control.tree.TreeCell;
 import be.nabu.jfx.control.tree.TreeItem;
 import be.nabu.jfx.control.tree.TreeUtils;
 import be.nabu.jfx.control.tree.Updateable;
+import be.nabu.jfx.control.tree.MovableTreeItem.Direction;
 import be.nabu.jfx.control.tree.drag.TreeDragDrop;
 import be.nabu.jfx.control.tree.drag.TreeDragListener;
 import be.nabu.jfx.control.tree.drag.TreeDropListener;
@@ -194,6 +198,23 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		}
 		display(controller, pane, new RootElementWithPush(structure, true), true, false);
 	}
+	private Node createMoveButton(Tree<?> serviceTree, Direction direction, BooleanBinding notLocked) {
+		Button button = new Button();
+		button.setTooltip(new Tooltip(direction.name()));
+		button.setGraphic(MainController.loadFixedSizeGraphic("move/" + direction.name().toLowerCase() + ".png"));
+		button.disableProperty().bind(notLocked);
+		button.addEventHandler(ActionEvent.ANY, new EventHandler<ActionEvent>() {
+			@Override
+			public void handle(ActionEvent event) {
+				TreeCell<?> cell = serviceTree.getSelectionModel().getSelectedItem();
+				if (cell != null) {
+					TreeItem<?> item = cell.getItem();
+					((MovableTreeItem<?>) item).move(direction);
+				}
+			}
+		});
+		return button;
+	}
 	public Tree<Element<?>> display(final MainController controller, Pane pane, Element<?> element, boolean isEditable, boolean allowNonLocalModification, Button...customButtons) throws IOException, ParseException {
 		this.controller = controller;
 		final Tree<Element<?>> tree = new Tree<Element<?>>(new ElementMarshallable(),
@@ -218,7 +239,6 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		ElementTreeItem.setListeners(tree, locked);
 		
 		tree.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
-
 		
 		HBox allButtons = new HBox();
 		// buttons
@@ -241,6 +261,9 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		allButtons.getChildren().add(buttons);
 		
 		allButtons.disableProperty().bind(notLocked);
+		
+		allButtons.setPadding(new Insets(10));
+		allButtons.setAlignment(Pos.TOP_LEFT);
 		
 		ScrollPane scrollPane = new ScrollPane();
 		VBox vbox = new VBox();
