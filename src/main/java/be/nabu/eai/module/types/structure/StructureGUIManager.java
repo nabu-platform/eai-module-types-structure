@@ -272,7 +272,10 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 			vbox.getChildren().add(allButtons);	
 		}
 		vbox.getChildren().add(scrollPane);
-		scrollPane.setContent(tree);
+		// the tree _must_ be contained by a container that can contain other things so we can attach stuff to the tree, if we set it directly in the scrollpane, this won't work
+		VBox treeContainer = new VBox();
+		treeContainer.getChildren().add(tree);
+		scrollPane.setContent(treeContainer);
 		pane.getChildren().add(vbox);
 		VBox.setVgrow(scrollPane, Priority.ALWAYS);
 		
