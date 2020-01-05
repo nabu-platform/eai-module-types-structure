@@ -91,4 +91,9 @@ public class StructureGUIInstance implements RefresheableArtifactGUIInstance {
 	public Artifact getArtifact() {
 		return structure;
 	}
+	
+	@Override
+	public boolean requiresPropertiesPane() {
+		return true;
+	}
 }
