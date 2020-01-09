@@ -157,6 +157,7 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 					MainController.getInstance().getAsynchronousRemoteServer().reload(target.itemProperty().get().getId());
 					MainController.getInstance().getCollaborationClient().created(entry.getId(), "Created");
 					
+					setActualId(entry.getId());
 					Tab tab = controller.newTab(entry.getId(), instance);
 					AnchorPane pane = new AnchorPane();
 					tab.setContent(pane);
