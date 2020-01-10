@@ -195,7 +195,8 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 	}
 	
 	public void display(final MainController controller, Pane pane, Structure structure) throws IOException, ParseException {
-		if (structure instanceof DefinedStructure) {
+		// if someone externally sets an external id, it wins
+		if (structure instanceof DefinedStructure && actualId == null) {
 			setActualId(((DefinedStructure) structure).getId());
 		}
 		display(controller, pane, new RootElementWithPush(structure, true), true, false);
