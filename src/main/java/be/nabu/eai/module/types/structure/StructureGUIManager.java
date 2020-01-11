@@ -39,6 +39,7 @@ import be.nabu.eai.developer.api.ArtifactGUIInstance;
 import be.nabu.eai.developer.api.ArtifactGUIManager;
 import be.nabu.eai.developer.api.ConfigurableGUIManager;
 import be.nabu.eai.developer.components.RepositoryBrowser;
+import be.nabu.eai.developer.impl.CustomTooltip;
 import be.nabu.eai.developer.managers.util.ElementMarshallable;
 import be.nabu.eai.developer.managers.util.RootElementWithPush;
 import be.nabu.eai.developer.managers.util.SimpleProperty;
@@ -201,9 +202,10 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		}
 		display(controller, pane, new RootElementWithPush(structure, true), true, false);
 	}
-	private Node createMoveButton(Tree<?> serviceTree, Direction direction, BooleanBinding notLocked) {
+	private Node createMoveButton(Tree<?> serviceTree, Direction direction, BooleanBinding notLocked, String tooltip) {
 		Button button = new Button();
-		button.setTooltip(new Tooltip(direction.name()));
+//		button.setTooltip(new Tooltip(direction.name()));
+		new CustomTooltip(tooltip).install(button);
 		button.setGraphic(MainController.loadFixedSizeGraphic("move/" + direction.name().toLowerCase() + ".png", 12));
 		button.disableProperty().bind(notLocked);
 		button.addEventHandler(ActionEvent.ANY, new EventHandler<ActionEvent>() {
@@ -249,24 +251,24 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		if (customButtons != null && customButtons.length > 0) {
 			allButtons.getChildren().addAll(Arrays.asList(customButtons));
 		}
-		buttons.getChildren().add(createAddButton(tree, Structure.class));
-		buttons.getChildren().add(createAddButton(tree, String.class));
-		buttons.getChildren().add(createAddButton(tree, Date.class));
-		buttons.getChildren().add(createAddButton(tree, Boolean.class));
-		buttons.getChildren().add(createAddButton(tree, UUID.class));
-		buttons.getChildren().add(createAddButton(tree, Integer.class));
-		buttons.getChildren().add(createAddButton(tree, Long.class));
-		buttons.getChildren().add(createAddButton(tree, Float.class));
-		buttons.getChildren().add(createAddButton(tree, Double.class));
-		buttons.getChildren().add(createAddButton(tree, Object.class));
-		buttons.getChildren().add(createAddButton(tree, byte[].class));
+		buttons.getChildren().add(createAddButton(tree, Structure.class, "A structure is a complex type that contain other types"));
+		buttons.getChildren().add(createAddButton(tree, String.class, "A string is a series of characters that make up textual content"));
+		buttons.getChildren().add(createAddButton(tree, Date.class, "A date is a point in time"));
+		buttons.getChildren().add(createAddButton(tree, Boolean.class, "Either true or false"));
+		buttons.getChildren().add(createAddButton(tree, UUID.class, "A globally unique id"));
+		buttons.getChildren().add(createAddButton(tree, Integer.class, "An integer number with 32 bit precision"));
+		buttons.getChildren().add(createAddButton(tree, Long.class, "An integer number with 64 bit precision"));
+		buttons.getChildren().add(createAddButton(tree, Float.class, "A floating number with 32 bit precision"));
+		buttons.getChildren().add(createAddButton(tree, Double.class, "A floating number with 64 bit precision"));
+		buttons.getChildren().add(createAddButton(tree, Object.class, "A generic object, any data type can be mapped to an object but it provides very little type safety"));
+		buttons.getChildren().add(createAddButton(tree, byte[].class, "An array of bytes"));
 //		buttons.getChildren().add(createAddMapButton(tree));
 		allButtons.getChildren().add(buttons);
 		
 		allButtons.disableProperty().bind(notLocked);
 		
 		allButtons.setPadding(new Insets(10, 5, 0, 5));
-		allButtons.setAlignment(Pos.BOTTOM_CENTER);
+		allButtons.setAlignment(Pos.BOTTOM_LEFT);
 		
 		ScrollPane scrollPane = new ScrollPane();
 		VBox vbox = new VBox();
@@ -282,10 +284,10 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		VBox.setVgrow(scrollPane, Priority.ALWAYS);
 		
 		HBox moveButtons = new HBox();
-		moveButtons.getChildren().add(createMoveButton(tree, Direction.LEFT, notLocked));
-		moveButtons.getChildren().add(createMoveButton(tree, Direction.RIGHT, notLocked));
-		moveButtons.getChildren().add(createMoveButton(tree, Direction.UP, notLocked));
-		moveButtons.getChildren().add(createMoveButton(tree, Direction.DOWN, notLocked));
+		moveButtons.getChildren().add(createMoveButton(tree, Direction.LEFT, notLocked, "Move the selected field to the parent"));
+		moveButtons.getChildren().add(createMoveButton(tree, Direction.RIGHT, notLocked, "Move the selected field into the sibling right above this one"));
+		moveButtons.getChildren().add(createMoveButton(tree, Direction.UP, notLocked, "Move the selected field up"));
+		moveButtons.getChildren().add(createMoveButton(tree, Direction.DOWN, notLocked, "Move the selected field down"));
 		moveButtons.setAlignment(Pos.TOP_CENTER);
 		moveButtons.setPadding(new Insets(0, 5, 10, 5));
 		vbox.getChildren().add(moveButtons);
@@ -497,9 +499,12 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		return tree;
 	}
 
-	private Button createAddButton(Tree<Element<?>> tree, Class<?> clazz) {
+	private Button createAddButton(Tree<Element<?>> tree, Class<?> clazz, String tooltip) {
 		Button button = new Button();
-		button.setTooltip(new Tooltip(clazz.getSimpleName()));
+//		button.setTooltip(new Tooltip(clazz.getSimpleName()));
+		if (tooltip != null) {
+			new CustomTooltip(tooltip).install(button);
+		}
 		button.setGraphic(MainController.loadGraphic(ElementTreeItem.getIcon(getType(clazz))));
 		button.addEventHandler(ActionEvent.ACTION, new StructureAddHandler(tree, clazz));
 		return button;
