@@ -21,6 +21,8 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
+import javafx.scene.control.ContentDisplay;
+import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SelectionMode;
 import javafx.scene.control.Tab;
@@ -54,6 +56,7 @@ import be.nabu.eai.repository.impl.PropertyUpdatedEventImpl;
 import be.nabu.eai.repository.resources.RepositoryEntry;
 import be.nabu.jfx.control.tree.MovableTreeItem;
 import be.nabu.jfx.control.tree.Tree;
+import be.nabu.jfx.control.tree.Tree.CellDescriptor;
 import be.nabu.jfx.control.tree.TreeCell;
 import be.nabu.jfx.control.tree.TreeItem;
 import be.nabu.jfx.control.tree.TreeUtils;
@@ -232,7 +235,8 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 					}
 					return cell.getItem().itemProperty().get();
 				}
-			});
+			}, newCellDescriptor());
+		
 		tree.rootProperty().set(new ElementTreeItem(element, null, isEditable, allowNonLocalModification));
 		tree.getTreeCell(tree.rootProperty().get()).expandedProperty().set(true);
 		tree.setClipboardHandler(new ElementClipboardHandler(tree));
@@ -497,6 +501,20 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 			}
 		});
 		return tree;
+	}
+
+	public static CellDescriptor newCellDescriptor() {
+		return new CellDescriptor() {
+			@Override
+			public void describe(Label label, String description) {
+				Node loadGraphic = MainController.loadFixedSizeGraphic("info2.png", 10, 16);
+				CustomTooltip customTooltip = new CustomTooltip(description);
+				customTooltip.install(loadGraphic);
+				customTooltip.setMaxWidth(400d);
+				label.setGraphic(loadGraphic);
+				label.setContentDisplay(ContentDisplay.RIGHT);
+			}
+		};
 	}
 
 	private Button createAddButton(Tree<Element<?>> tree, Class<?> clazz, String tooltip) {

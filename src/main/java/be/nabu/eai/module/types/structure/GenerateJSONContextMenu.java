@@ -47,6 +47,7 @@ public class GenerateJSONContextMenu implements EntryContextMenuProvider {
 								binding.setAddDynamicElementDefinitions(true);
 								binding.setAllowDynamicElements(true);
 								binding.setParseNumbers(true);
+								binding.setIgnoreRootIfArrayWrapper(true);
 								try {
 									ComplexContent unmarshal = binding.unmarshal(new ByteArrayInputStream(json.getBytes()), new Window[0]);
 									StructureManager manager = new StructureManager();
