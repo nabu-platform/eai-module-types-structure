@@ -158,29 +158,44 @@ public class StructureManager implements ArtifactManager<DefinedStructure>, Brok
 	}
 	
 	public static List<String> getComplexReferences(ComplexType type) {
+		return getComplexReferences(type, false);
+	}
+	
+	/**
+	 * The boolean includeRecursive allows you to get a full picture of all references, this includes those made by a supertype and/or those made by something you reference
+	 */
+	public static List<String> getComplexReferences(ComplexType type, boolean includeRecursive) {
 		List<String> references = new ArrayList<String>();
-		getReferences(type, references);
+		getReferences(type, references, includeRecursive);
 		return references;
 	}
 	
-	private static void getReferences(ComplexType type, List<String> references) {
+	private static void getReferences(ComplexType type, List<String> references, boolean includeRecursive) {
 		if (type.getSuperType() != null && type.getSuperType() instanceof Artifact) {
 			String id = ((Artifact) type.getSuperType()).getId();
 			if (!references.contains(id)) {
 				references.add(id);
 			}
 		}
-		// only local children, don't loop over supertype children
+		// if we want recursive resolving (to get a full picture of all references, include the supertype
+		if (includeRecursive && type.getSuperType() instanceof ComplexType) {
+			getReferences((ComplexType) type.getSuperType(), references, includeRecursive);
+		}
+		// only local children, don't loop over supertype children (this is handled by the above if relevant)
 		for (Element<?> child : type) {
-			// if it is a reference, don't recurse
+			// if it is a reference, don't recurse unless specifically asked
 			if (child.getType() instanceof Artifact) {
 				Artifact artifact = (Artifact) child.getType();
 				if (!references.contains(artifact.getId())) {
 					references.add(artifact.getId());
+					// we only want to recurse if the artifact itself was not already added and scanned, this to prevent circular reference problems
+					if (includeRecursive && child.getType() instanceof ComplexType) {
+						getReferences((ComplexType) child.getType(), references, includeRecursive);						
+					}
 				}
 			}
 			else if (child.getType() instanceof ComplexType) {
-				getReferences((ComplexType) child.getType(), references);
+				getReferences((ComplexType) child.getType(), references, includeRecursive);
 			}
 		}
 	}
