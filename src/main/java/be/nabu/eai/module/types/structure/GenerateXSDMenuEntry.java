@@ -127,6 +127,17 @@ public class GenerateXSDMenuEntry implements MainMenuEntry {
 		return builder.toString();
 	}
 	
+	public static Structure generateFromXML(String content) {
+		Document document = toDocument(new ByteArrayInputStream(content.getBytes(Charset.defaultCharset())));
+		Structure root = new Structure();
+		root.setName(EAIRepositoryUtils.stringToField(document.getDocumentElement().getLocalName()));
+		root.setNamespace(document.getDocumentElement().getNamespaceURI());
+		TypeRegistryImpl registry = new TypeRegistryImpl();
+		registry.register(root);
+		enrich(document.getDocumentElement(), root, registry);
+		return root;
+	}
+	
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private static void enrich(Element element, Structure current, ModifiableTypeRegistry registry) {
 		boolean isNew = TypeUtils.getAllChildren(current).size() == 0;

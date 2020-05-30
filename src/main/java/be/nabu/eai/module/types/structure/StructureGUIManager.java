@@ -151,23 +151,7 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 			public void handle(ActionEvent arg0) {
 				try {
 					String name = updater.getValue("Name");
-					RepositoryEntry entry = ((RepositoryEntry) target.itemProperty().get()).createNode(name, getArtifactManager(), true);
-					DefinedStructure structure = new DefinedStructure();
-					structure.setName("root");
-					getArtifactManager().save(entry, structure);
-					controller.getRepositoryBrowser().refresh();
-					
-					// reload
-					MainController.getInstance().getAsynchronousRemoteServer().reload(target.itemProperty().get().getId());
-					MainController.getInstance().getCollaborationClient().created(entry.getId(), "Created");
-					
-					setActualId(entry.getId());
-					Tab tab = controller.newTab(entry.getId(), instance);
-					AnchorPane pane = new AnchorPane();
-					tab.setContent(pane);
-					display(controller, pane, structure);
-					instance.setEntry(entry);
-					instance.setStructure(structure);
+					create(controller, ((RepositoryEntry) target.itemProperty().get()), instance, name);
 				}
 				catch (IOException e) {
 					throw new RuntimeException(e);
@@ -176,8 +160,35 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 					throw new RuntimeException(e);
 				}
 			}
+
 		});
 		return instance;
+	}
+	
+	public StructureGUIInstance create(final MainController controller, final RepositoryEntry target, String name) throws IOException, ParseException {
+		final StructureGUIInstance instance = new StructureGUIInstance(this);
+		create(controller, target, instance, name);
+		return instance;
+	}
+	
+	private void create(final MainController controller, final RepositoryEntry target, final StructureGUIInstance instance, String name) throws IOException, ParseException {
+		RepositoryEntry entry = target.createNode(name, getArtifactManager(), true);
+		DefinedStructure structure = new DefinedStructure();
+		structure.setName("root");
+		getArtifactManager().save(entry, structure);
+		controller.getRepositoryBrowser().refresh();
+		
+		// reload
+		MainController.getInstance().getAsynchronousRemoteServer().reload(target.getId());
+		MainController.getInstance().getCollaborationClient().created(entry.getId(), "Created");
+		
+		setActualId(entry.getId());
+		Tab tab = controller.newTab(entry.getId(), instance);
+		AnchorPane pane = new AnchorPane();
+		tab.setContent(pane);
+		display(controller, pane, structure);
+		instance.setEntry(entry);
+		instance.setStructure(structure);
 	}
 
 	@Override
@@ -255,7 +266,7 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		if (customButtons != null && customButtons.length > 0) {
 			allButtons.getChildren().addAll(Arrays.asList(customButtons));
 		}
-		buttons.getChildren().add(createAddButton(tree, Structure.class, "A structure is a complex type that contain other types"));
+		buttons.getChildren().add(createAddButton(tree, Structure.class, "A structure is a complex type that contains other types"));
 		buttons.getChildren().add(createAddButton(tree, String.class, "A string is a series of characters that make up textual content"));
 		buttons.getChildren().add(createAddButton(tree, Date.class, "A date is a point in time"));
 		buttons.getChildren().add(createAddButton(tree, Boolean.class, "Either true or false"));
