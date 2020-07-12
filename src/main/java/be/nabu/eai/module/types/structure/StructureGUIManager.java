@@ -174,7 +174,7 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 	private void create(final MainController controller, final RepositoryEntry target, final StructureGUIInstance instance, String name) throws IOException, ParseException {
 		RepositoryEntry entry = target.createNode(name, getArtifactManager(), true);
 		DefinedStructure structure = new DefinedStructure();
-		structure.setName("root");
+		structure.setName(name == null ? "root" : name);
 		getArtifactManager().save(entry, structure);
 		controller.getRepositoryBrowser().refresh();
 		
