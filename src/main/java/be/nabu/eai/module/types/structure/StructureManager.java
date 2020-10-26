@@ -65,6 +65,10 @@ public class StructureManager implements ArtifactManager<DefinedStructure>, Brok
 		structure.setId(entry.getId());
 		return structure;
 	}
+	
+	public void load(ResourceEntry entry, List<Validation<?>> messages, Structure into) throws IOException, ParseException {
+		parse(entry, "structure.xml", messages, into);
+	}
 
 	public static XMLDefinitionUnmarshaller getLocalizedUnmarshaller(Entry entry) {
 		XMLDefinitionUnmarshaller unmarshaller = new XMLDefinitionUnmarshaller();
@@ -95,6 +99,10 @@ public class StructureManager implements ArtifactManager<DefinedStructure>, Brok
 	}
 	
 	public static Structure parse(ResourceEntry entry, String name, List<Validation<?>> validations) throws FileNotFoundException, IOException, ParseException {
+		return parse(entry, name, validations, null);
+	}
+	
+	public static Structure parse(ResourceEntry entry, String name, List<Validation<?>> validations, Structure target) throws FileNotFoundException, IOException, ParseException {
 		Resource resource = entry.getContainer().getChild(name);
 		if (resource == null) {
 			throw new FileNotFoundException("Can not find: " + name);
@@ -104,8 +112,16 @@ public class StructureManager implements ArtifactManager<DefinedStructure>, Brok
 		ReadableContainer<ByteBuffer> readable = new ResourceReadableContainer((ReadableResource) resource);
 		try {
 			unmarshaller.setIdToUnmarshal(entry.getId());
-			// evil cast!
-			Structure structure = (Structure) unmarshaller.unmarshal(IOUtils.toInputStream(readable));
+			Structure structure;
+			// the original code
+			if (target == null) {
+				// evil cast!
+				structure = (Structure) unmarshaller.unmarshal(IOUtils.toInputStream(readable));
+			}
+			else {
+				unmarshaller.unmarshal(IOUtils.toInputStream(readable), target);
+				structure = target;
+			}
 			if (validations != null) {
 				for (String ignoredReference : unmarshaller.getIgnoredReferences()) {
 					validations.add(new ValidationMessage(Severity.ERROR, "Could not find reference '" + ignoredReference + "', it has been removed"));

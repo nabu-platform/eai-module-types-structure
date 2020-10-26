@@ -7,6 +7,7 @@ import java.util.Set;
 
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
+import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
 import be.nabu.eai.developer.MainController;
 import be.nabu.eai.developer.api.EntryContextMenuProvider;
@@ -26,7 +27,9 @@ public class GenerateJSONContextMenu implements EntryContextMenuProvider {
 	@Override
 	public MenuItem getContext(Entry entry) {
 		if (!entry.isLeaf() && !entry.isNode()) {
-			MenuItem item = new MenuItem("New structure from JSON");
+			Menu menu = new Menu("Generate Model");
+			
+			MenuItem item = new MenuItem("From JSON");
 			
 			item.addEventHandler(ActionEvent.ANY, new EventHandler<ActionEvent>() {
 				@Override
@@ -64,7 +67,8 @@ public class GenerateJSONContextMenu implements EntryContextMenuProvider {
 				}
 			});
 			
-			return item;
+			menu.getItems().add(item);
+			return menu;
 		}
 		return null;
 	}

@@ -127,8 +127,8 @@ public class GenerateXSDMenuEntry implements MainMenuEntry {
 		return builder.toString();
 	}
 	
-	public static Structure generateFromXML(String content) {
-		Document document = toDocument(new ByteArrayInputStream(content.getBytes(Charset.defaultCharset())));
+	public static Structure generateFromXML(String content, Charset charset) {
+		Document document = toDocument(new ByteArrayInputStream(content.getBytes(charset)));
 		Structure root = new Structure();
 		root.setName(EAIRepositoryUtils.stringToField(document.getDocumentElement().getLocalName()));
 		root.setNamespace(document.getDocumentElement().getNamespaceURI());

@@ -261,6 +261,7 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		tree.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
 		
 		HBox allButtons = new HBox();
+		allButtons.getStyleClass().add("structure-all-buttons");
 		// buttons
 		final HBox buttons = new HBox();
 		if (customButtons != null && customButtons.length > 0) {
@@ -299,6 +300,7 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		VBox.setVgrow(scrollPane, Priority.ALWAYS);
 		
 		HBox moveButtons = new HBox();
+		moveButtons.getStyleClass().add("structure-move-buttons");
 		moveButtons.getChildren().add(createMoveButton(tree, Direction.LEFT, notLocked, "Move the selected field to the parent"));
 		moveButtons.getChildren().add(createMoveButton(tree, Direction.RIGHT, notLocked, "Move the selected field into the sibling right above this one"));
 		moveButtons.getChildren().add(createMoveButton(tree, Direction.UP, notLocked, "Move the selected field up"));
