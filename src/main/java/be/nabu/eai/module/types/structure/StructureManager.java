@@ -24,6 +24,7 @@ import be.nabu.libs.artifacts.api.Artifact;
 import be.nabu.libs.converter.ConverterFactory;
 import be.nabu.libs.converter.MultipleConverter;
 import be.nabu.libs.converter.base.ConverterImpl;
+import be.nabu.libs.property.api.Value;
 import be.nabu.libs.resources.ResourceReadableContainer;
 import be.nabu.libs.resources.ResourceWritableContainer;
 import be.nabu.libs.resources.api.ManageableContainer;
@@ -46,6 +47,7 @@ import be.nabu.libs.types.base.ValueImpl;
 import be.nabu.libs.types.converters.StringToDefinedType;
 import be.nabu.libs.types.definition.xml.XMLDefinitionMarshaller;
 import be.nabu.libs.types.definition.xml.XMLDefinitionUnmarshaller;
+import be.nabu.libs.types.properties.ForeignKeyProperty;
 import be.nabu.libs.types.structure.DefinedStructure;
 import be.nabu.libs.types.structure.Structure;
 import be.nabu.libs.types.structure.SuperTypeProperty;
@@ -199,6 +201,14 @@ public class StructureManager implements ArtifactManager<DefinedStructure>, Brok
 		}
 		// only local children, don't loop over supertype children (this is handled by the above if relevant)
 		for (Element<?> child : type) {
+			// also include foreign key references
+			Value<String> property = child.getProperty(ForeignKeyProperty.getInstance());
+			if (property != null && property.getValue() != null) {
+				String reference = property.getValue().split(":")[0];
+				if (!references.contains(reference)) {
+					references.add(reference);
+				}
+			}
 			// if it is a reference, don't recurse unless specifically asked
 			if (child.getType() instanceof Artifact) {
 				Artifact artifact = (Artifact) child.getType();
@@ -236,6 +246,14 @@ public class StructureManager implements ArtifactManager<DefinedStructure>, Brok
 			}
 		}
 		for (Element<?> child : type) {
+			// also include foreign key references
+			Value<String> property = child.getProperty(ForeignKeyProperty.getInstance());
+			if (property != null && property.getValue() != null) {
+				String reference = property.getValue().split(":")[0];
+				if (reference.equals(from)) {
+					child.setProperty(new ValueImpl<String>(ForeignKeyProperty.getInstance(), to + property.getValue().substring(from.length())));
+				}
+			}
 			if (child.getType() instanceof Artifact) {
 				Artifact artifact = (Artifact) child.getType();
 				if (from.equals(artifact.getId())) {
