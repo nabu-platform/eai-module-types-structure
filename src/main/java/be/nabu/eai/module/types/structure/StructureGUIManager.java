@@ -248,6 +248,7 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 				}
 			}, newCellDescriptor());
 		
+		tree.getStyleClass().add("tree");
 		tree.rootProperty().set(new ElementTreeItem(element, null, isEditable, allowNonLocalModification));
 		tree.getTreeCell(tree.rootProperty().get()).expandedProperty().set(true);
 		tree.setClipboardHandler(new ElementClipboardHandler(tree));
@@ -272,9 +273,9 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		buttons.getChildren().add(createAddButton(tree, Date.class, "A date is a point in time"));
 		buttons.getChildren().add(createAddButton(tree, Boolean.class, "Either true or false"));
 		buttons.getChildren().add(createAddButton(tree, UUID.class, "A globally unique id"));
-		buttons.getChildren().add(createAddButton(tree, Integer.class, "An integer number with 32 bit precision"));
+//		buttons.getChildren().add(createAddButton(tree, Integer.class, "An integer number with 32 bit precision"));
 		buttons.getChildren().add(createAddButton(tree, Long.class, "An integer number with 64 bit precision"));
-		buttons.getChildren().add(createAddButton(tree, Float.class, "A floating number with 32 bit precision"));
+//		buttons.getChildren().add(createAddButton(tree, Float.class, "A floating number with 32 bit precision"));
 		buttons.getChildren().add(createAddButton(tree, Double.class, "A floating number with 64 bit precision"));
 		buttons.getChildren().add(createAddButton(tree, Object.class, "A generic object, any data type can be mapped to an object but it provides very little type safety"));
 		buttons.getChildren().add(createAddButton(tree, byte[].class, "An array of bytes"));
