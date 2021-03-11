@@ -22,7 +22,9 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ContentDisplay;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SelectionMode;
 import javafx.scene.control.Tab;
@@ -30,6 +32,8 @@ import javafx.scene.control.Tooltip;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.DragEvent;
 import javafx.scene.input.Dragboard;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.input.TransferMode;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.HBox;
@@ -40,6 +44,7 @@ import be.nabu.eai.developer.MainController;
 import be.nabu.eai.developer.api.ArtifactGUIInstance;
 import be.nabu.eai.developer.api.ArtifactGUIManager;
 import be.nabu.eai.developer.api.ConfigurableGUIManager;
+import be.nabu.eai.developer.collection.EAICollectionUtils;
 import be.nabu.eai.developer.components.RepositoryBrowser;
 import be.nabu.eai.developer.impl.CustomTooltip;
 import be.nabu.eai.developer.managers.util.ElementMarshallable;
@@ -94,6 +99,7 @@ import be.nabu.libs.validator.api.ValidationMessage.Severity;
 public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>, ConfigurableGUIManager<DefinedStructure> {
 	
 	private MainController controller;
+	private boolean allowComplexChildren = true;
 	
 	private EventDispatcher dispatcher = new EventDispatcherImpl();
 
@@ -101,6 +107,7 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 	public static final String ACTUAL_ID = "actualId";
 	
 	private String actualId;
+	private ElementSelectionListener elementSelectionListener;
 
 	public String isActualId() {
 		return actualId;
@@ -234,6 +241,18 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		});
 		return button;
 	}
+	
+	public static class StructureExtract {
+		private String name;
+
+		public String getName() {
+			return name;
+		}
+		public void setName(String name) {
+			this.name = name;
+		}
+	}
+	
 	public Tree<Element<?>> display(final MainController controller, Pane pane, Element<?> element, boolean isEditable, boolean allowNonLocalModification, Button...customButtons) throws IOException, ParseException {
 		this.controller = controller;
 		final Tree<Element<?>> tree = new Tree<Element<?>>(new ElementMarshallable(),
@@ -268,7 +287,9 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		if (customButtons != null && customButtons.length > 0) {
 			allButtons.getChildren().addAll(Arrays.asList(customButtons));
 		}
-		buttons.getChildren().add(createAddButton(tree, Structure.class, "A structure is a complex type that contains other types"));
+		if (allowComplexChildren) {
+			buttons.getChildren().add(createAddButton(tree, Structure.class, "A structure is a complex type that contains other types"));
+		}
 		buttons.getChildren().add(createAddButton(tree, String.class, "A string is a series of characters that make up textual content"));
 		buttons.getChildren().add(createAddButton(tree, Date.class, "A date is a point in time"));
 		buttons.getChildren().add(createAddButton(tree, Boolean.class, "Either true or false"));
@@ -308,7 +329,10 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		moveButtons.getChildren().add(createMoveButton(tree, Direction.DOWN, notLocked, "Move the selected field down"));
 		moveButtons.setAlignment(Pos.TOP_CENTER);
 		moveButtons.setPadding(new Insets(0, 5, 10, 5));
-		vbox.getChildren().add(moveButtons);
+		moveButtons.disableProperty().bind(notLocked);
+		if (isEditable) {
+			vbox.getChildren().add(moveButtons);
+		}
 		
 		scrollPane.prefHeightProperty().bind(pane.heightProperty());
 		if (pane instanceof AnchorPane) {
@@ -321,7 +345,7 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		// minus scrollbar
 		tree.prefWidthProperty().bind(vbox.widthProperty().subtract(25));
 		
-		ElementSelectionListener elementSelectionListener = new ElementSelectionListener(controller, true);
+		elementSelectionListener = new ElementSelectionListener(controller, true);
 		elementSelectionListener.setActualId(lockId);
 		tree.getSelectionModel().selectedItemProperty().addListener(elementSelectionListener);
 		
@@ -329,9 +353,21 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 			@Override
 			public void changed(ObservableValue<? extends TreeCell<Element<?>>> arg0, TreeCell<Element<?>> arg1, TreeCell<Element<?>> arg2) {
 				if (arg2 != null) {
+					boolean editable = false;
 					// disable all buttons
 					Type type = arg2.getItem().itemProperty().get().getType();
-					buttons.disableProperty().set(!(type instanceof ModifiableComplexType) || !arg2.getItem().editableProperty().get());
+					if (type instanceof ModifiableComplexType) {
+						editable = arg2.getItem().editableProperty().get();
+					}
+					// if the type itself is not modifiable, check the parent
+					else {
+						TreeCell<Element<?>> parent = arg2.getParent();
+						if (parent != null && parent.getItem().itemProperty().get().getType() instanceof ModifiableComplexType && parent.getItem().editableProperty().get()) {
+							editable = true;
+						}
+					}
+					buttons.disableProperty().set(!editable);
+//					buttons.disableProperty().set(!(type instanceof ModifiableComplexType) || !arg2.getItem().editableProperty().get());
 				}
 			}
 		});
@@ -369,6 +405,62 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 			}
 		});
 		EAIDeveloperUtils.addElementExpansionHandler(tree);
+		
+		// the above "expansion handler" also injects code to unset the right click menu
+		// we assume chronological triggering in order of registration, so we register this one after that
+		// not clean...but hey
+		tree.getSelectionModel().selectedItemProperty().addListener(new ChangeListener<TreeCell<Element<?>>>() {
+			@Override
+			public void changed(ObservableValue<? extends TreeCell<Element<?>>> arg0, TreeCell<Element<?>> arg1, TreeCell<Element<?>> selected) {
+				Entry resolve = controller.getRepository().getEntry(lockId);
+				if (selected != null && resolve != null && resolve.getParent() instanceof RepositoryEntry) {
+					Element<?> element = selected.getItem().itemProperty().get();
+					if (element.getType() instanceof Structure && !(element.getType() instanceof DefinedStructure)) {
+						MenuItem item = new MenuItem("Extract to new type");
+						item.addEventHandler(ActionEvent.ANY, new EventHandler<ActionEvent>() {
+							@Override
+							public void handle(ActionEvent arg0) {
+								StructureExtract extract = new StructureExtract();
+								EAIDeveloperUtils.buildPopup("Extract to new type", "Extract to new type", extract, new EventHandler<ActionEvent>() {
+									@Override
+									public void handle(ActionEvent event) {
+										if (extract.getName() != null && !extract.getName().trim().isEmpty()) {
+											StructureManager manager = new StructureManager();
+											String name = extract.getName().trim();
+											String normalized = EAICollectionUtils.normalize(name);
+											try {
+												RepositoryEntry repositoryEntry = ((RepositoryEntry) resolve.getParent()).createNode(normalized, manager, true);
+												if (!normalized.equals(name)) {
+													repositoryEntry.getNode().setName(name);
+													repositoryEntry.saveNode();
+												}
+												// make sure we set the name on the element itself!
+												((Structure) element.getType()).setName(element.getName());
+												manager.saveContent(repositoryEntry, (ComplexType) element.getType());
+												MainController.getInstance().getRepositoryBrowser().refresh();
+												EAIDeveloperUtils.created(repositoryEntry.getId());
+												// if we can modify it, redraw it
+												if (element instanceof ModifiableElement) {
+													((ModifiableElement<?>) element).setType((Type) repositoryEntry.getNode().getArtifact());
+													MainController.getInstance().setChanged();
+													MainController.getInstance().redraw(lockId);
+												}
+											}
+											catch (Exception e) {
+												MainController.getInstance().notify(e);
+											}
+										}
+									}
+								}, false).show();
+							}
+						});
+						ContextMenu menu = new ContextMenu(item);
+						tree.setContextMenu(menu);
+					}
+				}
+			}
+		});
+		
 		tree.addEventHandler(DragEvent.DRAG_OVER, new EventHandler<DragEvent>() {
 			@Override
 			public void handle(DragEvent event) {
@@ -521,7 +613,7 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		return new CellDescriptor() {
 			@Override
 			public void describe(Label label, String description) {
-				Node loadGraphic = MainController.loadFixedSizeGraphic("info2.png", 10, 16);
+				Node loadGraphic = MainController.getInfoIcon();
 				CustomTooltip customTooltip = new CustomTooltip(description);
 				customTooltip.install(loadGraphic);
 				customTooltip.setMaxWidth(400d);
@@ -602,6 +694,13 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		@Override
 		public void handle(Event arg0) {
 			TreeCell<Element<?>> selectedItem = tree.getSelectionModel().getSelectedItem();
+			// if nothing is selected, add it to the root
+			if (selectedItem == null) {
+				selectedItem = tree.getRootCell();
+			}
+			if (!(selectedItem.getItem().itemProperty().get().getType() instanceof ModifiableComplexType)) {
+				selectedItem = selectedItem.getParent();
+			}
 			if (selectedItem != null && selectedItem.getItem().editableProperty().get()) {
 				// add an element in it
 				if (selectedItem.getItem().itemProperty().get().getType() instanceof ComplexType) {
@@ -645,5 +744,17 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 	public EventDispatcher getDispatcher() {
 		return dispatcher;
 	}
-	
+
+	public boolean isAllowComplexChildren() {
+		return allowComplexChildren;
+	}
+
+	public void setAllowComplexChildren(boolean allowComplexChildren) {
+		this.allowComplexChildren = allowComplexChildren;
+	}
+
+	public ElementSelectionListener getElementSelectionListener() {
+		return elementSelectionListener;
+	}
+
 }

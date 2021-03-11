@@ -139,7 +139,7 @@ public class GenerateXSDMenuEntry implements MainMenuEntry {
 	}
 	
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	private static void enrich(Element element, Structure current, ModifiableTypeRegistry registry) {
+	public static void enrich(Element element, Structure current, ModifiableTypeRegistry registry) {
 		boolean isNew = TypeUtils.getAllChildren(current).size() == 0;
 		NamedNodeMap attributes = element.getAttributes();
 		Set<String> foundElements = new HashSet<String>();
@@ -290,7 +290,8 @@ public class GenerateXSDMenuEntry implements MainMenuEntry {
 		else if (textContent.matches("[0-9]+")) {
 			clazz = Long.class;
 		}
-		else if (textContent.matches("[0-9.]+")) {
+		// there can only be one dot, in some cases (e.g. ipv4) there are numbers with multiple .
+		else if (textContent.matches("[0-9.]+") && textContent.length() - textContent.replace(".", "").length() <= 1) {
 			clazz = Double.class;
 		}
 		else if (textContent.equalsIgnoreCase("true") || textContent.equalsIgnoreCase("false")) {
