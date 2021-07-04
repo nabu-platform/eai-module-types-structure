@@ -3,6 +3,7 @@ package be.nabu.eai.module.types.structure;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.StringWriter;
+import java.math.BigInteger;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -288,7 +289,14 @@ public class GenerateXSDMenuEntry implements MainMenuEntry {
 			clazz = String.class;
 		}
 		else if (textContent.matches("[0-9]+")) {
-			clazz = Long.class;
+			try {
+				Long.parseLong(textContent);
+				clazz = Long.class;
+			}
+			// values that are too big will throw a numberformat exception, note that if you have a small number first, then a large number, it may still fail...we can also add an option to ignore longs, e.g. for table visualization where it doesn't matter too much
+			catch (NumberFormatException e) {
+				clazz = BigInteger.class;
+			}
 		}
 		// there can only be one dot, in some cases (e.g. ipv4) there are numbers with multiple .
 		else if (textContent.matches("[0-9.]+") && textContent.length() - textContent.replace(".", "").length() <= 1) {
