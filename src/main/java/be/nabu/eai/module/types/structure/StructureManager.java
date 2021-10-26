@@ -150,9 +150,13 @@ public class StructureManager implements ArtifactManager<DefinedStructure>, Brok
 	}
 
 	public static List<Validation<?>> format(ResourceEntry entry, ComplexType artifact, String name) throws IOException {
-		Resource resource = entry.getContainer().getChild(name);
+		return format(entry.getContainer(), artifact, name);
+	}
+
+	public static List<Validation<?>> format(ResourceContainer<?> container, ComplexType artifact, String name) throws IOException {
+		Resource resource = container.getChild(name);
 		if (resource == null) {
-			resource = ((ManageableContainer<?>) entry.getContainer()).create(name, "application/xml");
+			resource = ((ManageableContainer<?>) container).create(name, "application/xml");
 		}
 		WritableContainer<ByteBuffer> writable = new ResourceWritableContainer((WritableResource) resource);
 		try {

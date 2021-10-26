@@ -415,7 +415,15 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 				Entry resolve = controller.getRepository().getEntry(lockId);
 				if (selected != null && resolve != null && resolve.getParent() instanceof RepositoryEntry) {
 					Element<?> element = selected.getItem().itemProperty().get();
-					if (element.getType() instanceof Structure && !(element.getType() instanceof DefinedStructure)) {
+					boolean set = false;
+					if (tree.getContextMenuProvider() != null) {
+						ContextMenu menu = tree.getContextMenuProvider().getMenu(Arrays.asList(selected));
+						if (menu != null) {
+							tree.setContextMenu(menu);
+							set = true;
+						}
+					}
+					if (!set && element.getType() instanceof Structure && !(element.getType() instanceof DefinedStructure)) {
 						MenuItem item = new MenuItem("Extract to new type");
 						item.addEventHandler(ActionEvent.ANY, new EventHandler<ActionEvent>() {
 							@Override
