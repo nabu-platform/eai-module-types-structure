@@ -154,6 +154,10 @@ public class StructureManager implements ArtifactManager<DefinedStructure>, Brok
 	}
 
 	public static List<Validation<?>> format(ResourceContainer<?> container, ComplexType artifact, String name) throws IOException {
+		return format(container, artifact, name, false);
+	}
+	
+	public static List<Validation<?>> format(ResourceContainer<?> container, ComplexType artifact, String name, boolean resolveDefinitions) throws IOException {
 		Resource resource = container.getChild(name);
 		if (resource == null) {
 			resource = ((ManageableContainer<?>) container).create(name, "application/xml");
@@ -161,6 +165,10 @@ public class StructureManager implements ArtifactManager<DefinedStructure>, Brok
 		WritableContainer<ByteBuffer> writable = new ResourceWritableContainer((WritableResource) resource);
 		try {
 			XMLDefinitionMarshaller marshaller = new XMLDefinitionMarshaller();
+			if (resolveDefinitions) {
+				marshaller.setResolveDefinitions(resolveDefinitions);
+				marshaller.setResolveExtensions(resolveDefinitions);
+			}
 			marshaller.marshal(IOUtils.toOutputStream(writable), artifact);
 			return new ArrayList<Validation<?>>();
 		}
@@ -189,6 +197,8 @@ public class StructureManager implements ArtifactManager<DefinedStructure>, Brok
 	public static List<String> getComplexReferences(ComplexType type, boolean includeRecursive) {
 		List<String> references = new ArrayList<String>();
 		getReferences(type, references, includeRecursive);
+		// hard removal of byte array reference...
+		references.remove("[B");
 		return references;
 	}
 	
