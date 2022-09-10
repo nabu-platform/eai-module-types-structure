@@ -24,6 +24,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
+import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SelectionMode;
@@ -85,13 +86,16 @@ import be.nabu.libs.types.api.ModifiableTypeInstance;
 import be.nabu.libs.types.api.SimpleType;
 import be.nabu.libs.types.api.Type;
 import be.nabu.libs.types.base.ComplexElementImpl;
+import be.nabu.libs.types.base.ElementImpl;
 import be.nabu.libs.types.base.SimpleElementImpl;
 import be.nabu.libs.types.base.StringMapCollectionHandlerProvider;
+import be.nabu.libs.types.base.TypeBaseUtils;
 import be.nabu.libs.types.base.ValueImpl;
 import be.nabu.libs.types.java.BeanResolver;
 import be.nabu.libs.types.properties.CollectionHandlerProviderProperty;
 import be.nabu.libs.types.properties.NameProperty;
 import be.nabu.libs.types.structure.DefinedStructure;
+import be.nabu.libs.types.structure.SimpleStructure;
 import be.nabu.libs.types.structure.Structure;
 import be.nabu.libs.validator.api.ValidationMessage;
 import be.nabu.libs.validator.api.ValidationMessage.Severity;
@@ -423,6 +427,7 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 							set = true;
 						}
 					}
+					Menu menu = new Menu();
 					if (!set && element.getType() instanceof Structure && !(element.getType() instanceof DefinedStructure)) {
 						MenuItem item = new MenuItem("Extract to new type");
 						item.addEventHandler(ActionEvent.ANY, new EventHandler<ActionEvent>() {
@@ -451,7 +456,7 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 												if (element instanceof ModifiableElement) {
 													((ModifiableElement<?>) element).setType((Type) repositoryEntry.getNode().getArtifact());
 													MainController.getInstance().setChanged();
-													MainController.getInstance().redraw(lockId);
+													MainController.getInstance().redraw(resolve.getId());
 												}
 											}
 											catch (Exception e) {
@@ -462,8 +467,39 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 								}, false).show();
 							}
 						});
-						ContextMenu menu = new ContextMenu(item);
-						tree.setContextMenu(menu);
+						menu.getItems().add(item);
+					}
+					if (element instanceof ModifiableElement && element.getType() instanceof Structure && !(element.getType() instanceof DefinedStructure)) {
+						// if it is a simple complex type
+						if (element.getType() instanceof SimpleStructure) {
+							MenuItem item = new MenuItem("Convert to complex type");
+							// TODO
+//							menu.getItems().add(item);
+						}
+						else {
+							MenuItem item = new MenuItem("Convert to simple type");
+							item.addEventHandler(ActionEvent.ANY, new EventHandler<ActionEvent>() {
+								@Override
+								public void handle(ActionEvent event) {
+									SimpleStructure<?> simple = new SimpleStructure(SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class));
+									for (Element<?> child : (Structure) element.getType()) {
+										Element<?> clone = TypeBaseUtils.clone(child, simple);
+										if (!clone.getName().startsWith("@")) {
+											clone.setProperty(new ValueImpl<String>(NameProperty.getInstance(), "@" + clone.getName()));
+										}
+										simple.add(clone);
+									}
+									((ModifiableElement<?>) element).setType(simple);
+									MainController.getInstance().setChanged();
+									MainController.getInstance().redraw(resolve.getId());
+								}
+							});
+							menu.getItems().add(item);
+						}
+					}
+					if (!menu.getItems().isEmpty()) {
+						ContextMenu contextMenu = new ContextMenu(menu.getItems().toArray(new MenuItem[0]));
+						tree.setContextMenu(contextMenu);
 					}
 				}
 			}
