@@ -1,6 +1,7 @@
 package be.nabu.eai.module.types.structure;
 
 import java.io.IOException;
+import java.net.URL;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,6 +30,7 @@ import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SelectionMode;
 import javafx.scene.control.Tab;
+import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.DragEvent;
@@ -86,7 +88,6 @@ import be.nabu.libs.types.api.ModifiableTypeInstance;
 import be.nabu.libs.types.api.SimpleType;
 import be.nabu.libs.types.api.Type;
 import be.nabu.libs.types.base.ComplexElementImpl;
-import be.nabu.libs.types.base.ElementImpl;
 import be.nabu.libs.types.base.SimpleElementImpl;
 import be.nabu.libs.types.base.StringMapCollectionHandlerProvider;
 import be.nabu.libs.types.base.TypeBaseUtils;
@@ -101,6 +102,13 @@ import be.nabu.libs.validator.api.ValidationMessage;
 import be.nabu.libs.validator.api.ValidationMessage.Severity;
 
 public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>, ConfigurableGUIManager<DefinedStructure> {
+
+	static {
+		URL resource = StructureGUIManager.class.getClassLoader().getResource("structure.css");
+		if (resource != null) {
+			MainController.registerStyleSheet(resource.toExternalForm());
+		}
+	}
 	
 	private MainController controller;
 	private boolean allowComplexChildren = true;
@@ -314,6 +322,9 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		
 		ScrollPane scrollPane = new ScrollPane();
 		VBox vbox = new VBox();
+		
+		vbox.getChildren().add(createSearchable(tree));
+		
 		if (isEditable) {
 			vbox.getChildren().add(allButtons);	
 		}
@@ -651,6 +662,37 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 			}
 		});
 		return tree;
+	}
+
+	public static VBox createSearchable(final Tree<Element<?>> tree) {
+		VBox search = new VBox();
+		TextField searchText = new TextField();
+		searchText.setPromptText("Search for field");
+		search.getChildren().add(searchText);
+		search.setPadding(new Insets(10, 5, 0, 5));
+		
+		searchText.textProperty().addListener(new ChangeListener<String>() {
+			@Override
+			public void changed(ObservableValue<? extends String> observable, String oldValue, String newValue) {
+				find(tree.getRootCell(), newValue == null ? null : newValue.trim().toLowerCase());
+			}
+			private void find(TreeCell<Element<?>> cell, String value) {
+				cell.getCellValue().getNode().getStyleClass().removeAll("search-unmatched", "search-matched");
+				if (value != null && !value.isEmpty()) {
+					String name = cell.getItem().getName();
+					if (name != null && name.toLowerCase().contains(value)) {
+						cell.getCellValue().getNode().getStyleClass().add("search-matched");		
+					}
+					else {
+						cell.getCellValue().getNode().getStyleClass().add("search-unmatched");
+					}
+				}
+				for (TreeCell<Element<?>> child : cell.getChildren()) {
+					find(child, value);
+				}
+			}
+		});
+		return search;
 	}
 
 	public static CellDescriptor newCellDescriptor() {

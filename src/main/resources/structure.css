@@ -1,0 +1,11 @@
+.search-matched {
+	-fx-background-color: #dbeeff;
+	-fx-border-radius: 5px;
+	-fx-background-radius: 5px;
+	-fx-border-color: #7295b4;
+	-fx-text-fill: #285073;
+}
+
+.search-unmatched {
+	-fx-text-fill: #aaaaaa;
+}
