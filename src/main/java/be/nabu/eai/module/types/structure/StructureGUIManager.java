@@ -556,6 +556,11 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 				}
 			}
 		});
+		makeDroppable(controller, tree, locked);
+		return tree;
+	}
+
+	private static void makeDroppable(final MainController controller, final Tree<Element<?>> tree, BooleanProperty locked) {
 		// can only make it drag/droppable after it's added because it needs the scene
 		TreeDragDrop.makeDroppable(tree, new TreeDropListener<Element<?>>() {
 			@Override
@@ -659,7 +664,6 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 				}
 			}
 		});
-		return tree;
 	}
 
 	public static VBox createSearchable(final Tree<Element<?>> tree) {
@@ -746,7 +750,7 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 	}
 	
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	private List<ValidationMessage> addElement(Element<?> element, Type type, String name, Value<?>...values) {
+	private static List<ValidationMessage> addElement(Element<?> element, Type type, String name, Value<?>...values) {
 		ModifiableComplexType newParent;
 		// if the target is a defined type, we need to wrap an extension around it
 		if (element.getType() instanceof DefinedType && element.getParent() != null) {
