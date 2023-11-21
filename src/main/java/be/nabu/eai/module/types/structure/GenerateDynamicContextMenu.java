@@ -2,6 +2,8 @@ package be.nabu.eai.module.types.structure;
 
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -21,17 +23,18 @@ import be.nabu.eai.developer.managers.util.SimplePropertyUpdater;
 import be.nabu.eai.developer.util.EAIDeveloperUtils;
 import be.nabu.eai.repository.EAIResourceRepository;
 import be.nabu.eai.repository.api.Entry;
+import be.nabu.eai.repository.api.Node;
 import be.nabu.eai.repository.api.ResourceEntry;
 import be.nabu.eai.repository.resources.RepositoryEntry;
 import be.nabu.eai.repository.util.SystemPrincipal;
-import be.nabu.libs.artifacts.api.Artifact;
 import be.nabu.libs.property.api.Property;
 import be.nabu.libs.resources.api.ManageableContainer;
 import be.nabu.libs.resources.api.ReadableResource;
 import be.nabu.libs.resources.api.ResourceContainer;
 import be.nabu.libs.resources.api.WritableResource;
+import be.nabu.libs.services.ServiceRuntime;
+import be.nabu.libs.services.ServiceUtils;
 import be.nabu.libs.services.api.DefinedService;
-import be.nabu.libs.services.api.Service;
 import be.nabu.libs.services.pojo.MethodServiceInterface;
 import be.nabu.libs.services.pojo.POJOUtils;
 import be.nabu.libs.types.SimpleTypeWrapperFactory;
@@ -56,11 +59,26 @@ import be.nabu.libs.types.structure.Structure;
 import be.nabu.utils.io.IOUtils;
 import be.nabu.utils.io.api.ByteBuffer;
 import be.nabu.utils.io.api.ReadableContainer;
-import be.nabu.utils.io.api.WritableContainer;
+import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.ListCell;
+import javafx.scene.control.ListView;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.SingleSelectionModel;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
+import javafx.stage.Stage;
+import javafx.util.Callback;
+import javafx.util.StringConverter;
 
 public class GenerateDynamicContextMenu implements EntryContextMenuProvider {
 	
@@ -71,12 +89,37 @@ public class GenerateDynamicContextMenu implements EntryContextMenuProvider {
 			synchronized(GenerateDynamicContextMenu.class) {
 				if (modelGenerators == null) {
 					Map<String, ModelGenerator> modelGenerators = new HashMap<String, ModelGenerator>();
-					MethodServiceInterface iface = MethodServiceInterface.wrap(ModelGenerator.class, "getModels");
+					MethodServiceInterface ifaceModels = MethodServiceInterface.wrap(ModelGenerator.class, "getModels");
+					MethodServiceInterface ifaceFields = MethodServiceInterface.wrap(ModelGenerator.class, "getFields");
+
+					Map<String, DefinedService> modelServices = new HashMap<String, DefinedService>();
+					Map<String, DefinedService> fieldServices = new HashMap<String, DefinedService>();
+					
 					for (DefinedService service : EAIResourceRepository.getInstance().getArtifacts(DefinedService.class)) {
-						if (POJOUtils.isImplementation(service, iface)) {
-							ModelGenerator generator = POJOUtils.newProxy(ModelGenerator.class, EAIResourceRepository.getInstance(), SystemPrincipal.ROOT, EAIResourceRepository.getInstance().getServiceRunner(), service);
-							modelGenerators.put(service.getId(), generator);
+						String name = service.getId();
+						Node node = EAIResourceRepository.getInstance().getNode(service.getId());
+						if (node != null && node.getProperties() != null && node.getProperties().containsKey("name")) {
+							name = node.getProperties().get("name");
 						}
+						if (POJOUtils.isImplementation(service, ifaceModels)) {
+							modelServices.put(name, service);
+						}
+						else if (POJOUtils.isImplementation(service, ifaceFields)) {
+							fieldServices.put(name, service);
+						}
+					}
+					// we need to figure out if there is a field lister as well
+					for (Map.Entry<String, DefinedService> entry : modelServices.entrySet()) {
+						String name = entry.getKey();
+						ModelGenerator generator;
+						if (fieldServices.containsKey(name)) {
+							DefinedService fieldService = fieldServices.get(name);
+							generator = POJOUtils.newProxy(ModelGenerator.class, EAIResourceRepository.getInstance(), SystemPrincipal.ROOT, EAIResourceRepository.getInstance().getServiceRunner(), entry.getValue(), fieldService);
+						}
+						else {
+							generator = POJOUtils.newProxy(ModelGenerator.class, EAIResourceRepository.getInstance(), SystemPrincipal.ROOT, EAIResourceRepository.getInstance().getServiceRunner(), entry.getValue());
+						}
+						modelGenerators.put(name, generator);
 					}
 					GenerateDynamicContextMenu.modelGenerators = modelGenerators;
 				}
@@ -125,30 +168,143 @@ public class GenerateDynamicContextMenu implements EntryContextMenuProvider {
 							String generatorName = updater.getValue("Generator");
 							if (generatorName != null) {
 								ModelGenerator modelGenerator = modelGenerators.get(generatorName);
-								List<StructureModel> models = modelGenerator.getModels();
+								List<StructureModel> models;
+								Map<String, Object> originalContext = ServiceRuntime.getGlobalContext();
+								try {
+									ServiceRuntime.setGlobalContext(new HashMap<String, Object>());
+									ServiceUtils.setServiceContext(null, entry.getId());
+									models = modelGenerator.getModels();
+								}
+								finally {
+									ServiceRuntime.setGlobalContext(originalContext);
+								}
+								/**
+								 * IMPORTANT:
+								 * 
+								 * the combobox logic is _very_ fragile, it took a long time to balance the issues that arose to create a sorted filterable combobox
+								 * a lot of iterations were attempted until the current solution was reached, it can probably be optimized though, for instance we could retain + add instead of remove all. this was in there for a while but taken out as other issues kept popping up (in retrospect: likely unrelated)
+								 */
 								if (models != null && !models.isEmpty()) {
 									Map<String, StructureModel> modelMap = new HashMap<String, StructureModel>();
 									for (StructureModel model : models) {
-										modelMap.put(model.getName(), model);
+										modelMap.put(model.getCollectionName(), model);
 									}
 									
-									Set<Property<?>> properties = new LinkedHashSet<Property<?>>();
-									EnumeratedSimpleProperty<String> modelProperty = new EnumeratedSimpleProperty<String>("Model", String.class, true);
-									modelProperty.addEnumeration(modelMap.keySet());
-									properties.add(modelProperty);
-									properties.add(new SimpleProperty<String>("Name", String.class, false));
-									final SimplePropertyUpdater updater = new SimplePropertyUpdater(true, properties);
-									EAIDeveloperUtils.buildPopup(MainController.getInstance(), updater, "Choose model", new EventHandler<ActionEvent>() {
+									ComboBox<StructureModel> comboBox = new ComboBox<StructureModel>();
+									// after blur, the fromString is called and it must return the correct object or the selection will be unset
+									comboBox.setConverter(new StringConverter<StructureModel>() {
+										@Override
+										public String toString(StructureModel object) {
+											if (object == null) {
+												return null;
+											}
+											return object.getCollectionName()
+												+ (object.getTitle() == null ? "" : " (" + object.getTitle() + ")");
+										}
+										@Override
+										public StructureModel fromString(String string) {
+											if (string == null) {
+												return null;
+											}
+											int index = string.indexOf("(");
+											if (index >= 0) {
+												string = string.substring(0, index).trim(); 
+											}
+											return modelMap.get(string);
+										}
+									});
+									List<StructureModel> allValues = new ArrayList(modelMap.values());
+									Comparator<StructureModel> comparator = new Comparator<StructureModel>() {
+										@Override
+										public int compare(StructureModel o1, StructureModel o2) {
+											return o1.getCollectionName().compareTo(o2.getCollectionName());
+										}
+									};
+									comboBox.getItems().addAll(allValues);
+									Collections.sort(comboBox.getItems(), comparator);
+									comboBox.setEditable(true);
+									comboBox.getEditor().textProperty().addListener(new ChangeListener<String>() {
+										@SuppressWarnings({ "rawtypes", "unchecked" })
+										@Override
+										public void changed(ObservableValue<? extends String> observable, String oldValue, String newValue) {
+											StringConverter converter = comboBox.getConverter();
+											// we check that there are SOME items
+											// when we clear the collection box to add all the items, we actually wipe the selection and reset it, this triggers a roundtrip to an empty string
+											if ((oldValue == null && newValue != null) || (oldValue != null && newValue == null) || (oldValue != null && newValue != null && !oldValue.equals(newValue)) && comboBox.getItems().size() > 0) {
+												SingleSelectionModel selectionModel = comboBox.getSelectionModel();
+												Object selectedItem = comboBox.getSelectionModel().getSelectedItem();
+												// by default we show all
+												boolean showAll = true;
+												// if there is a value, we may want to filter
+												if (newValue != null && !newValue.trim().isEmpty()) {
+													// check that it doesn't match with the currently selected value
+													if (comboBox.getSelectionModel().getSelectedItem() == null || (comboBox.getSelectionModel().getSelectedItem() != null && !comboBox.getConverter().toString(comboBox.getSelectionModel().getSelectedItem()).equals(newValue))) {
+														showAll = false;
+														List toShow = new ArrayList();
+														for (Object value : allValues) {
+															if (converter.toString(value).toLowerCase().indexOf(newValue) >= 0) {
+																toShow.add(value);
+															}
+														}
+														if (!comboBox.getItems().equals(toShow)) {
+															comboBox.getItems().clear();
+															comboBox.getItems().addAll(toShow);
+															Collections.sort(comboBox.getItems(), comparator);
+//															selectionModel.select(selectedItem);
+														}
+													}
+												}
+												// the equals does not work on these lists, so we just check size
+												if (showAll && allValues.size() > comboBox.getItems().size()) {
+													comboBox.getItems().clear();
+													comboBox.getItems().addAll(allValues);
+													Collections.sort(comboBox.getItems(), comparator);
+													selectionModel.select(selectedItem);
+												}
+											}
+										}
+									});
+									
+//									final SimplePropertyUpdater updater = new SimplePropertyUpdater(true, properties);
+									VBox pane = new VBox();
+									TextField name = new TextField();
+									pane.getChildren().add(EAIDeveloperUtils.newHBox("Model", comboBox));
+									pane.getChildren().add(EAIDeveloperUtils.newHBox("Name", name));
+									pane.setPadding(new Insets(10));
+									HBox buttons = new HBox();
+									buttons.setAlignment(Pos.CENTER);
+									pane.getChildren().add(buttons);
+									Button ok = new Button("Ok");
+									Button cancel = new Button("Cancel");
+									buttons.getChildren().addAll(ok, cancel);
+									
+									comboBox.getSelectionModel().selectedItemProperty().addListener(new ChangeListener<StructureModel>() {
+										@Override
+										public void changed(ObservableValue<? extends StructureModel> observable, StructureModel oldValue, StructureModel newValue) {
+											name.setPromptText(newValue == null ? "Select a model" : newValue.getName());
+										}
+									});
+									
+									Stage buildPopup = EAIDeveloperUtils.buildPopup("Choose model", pane);
+									
+									cancel.addEventHandler(ActionEvent.ANY, new EventHandler<ActionEvent>() {
 										@Override
 										public void handle(ActionEvent event) {
-											String structureName = updater.getValue("Name");
-											String modelName = updater.getValue("Model");
-											if (modelName != null) {
+											buildPopup.hide();
+										}
+									});
+									ok.addEventHandler(ActionEvent.ANY, new EventHandler<ActionEvent>() {
+										@Override
+										public void handle(ActionEvent event) {
+//											String structureName = updater.getValue("Name");
+											//String modelName = updater.getValue("Model");
+											StructureModel structureModel = comboBox.getSelectionModel().getSelectedItem();
+											String structureName = name.getText();
+											if (structureModel != null) {
 												try {
-													if (structureName == null) {
-														structureName = NamingConvention.LOWER_CAMEL_CASE.apply(modelName);
+													if (structureName == null || structureName.trim().isEmpty()) {
+														structureName = structureModel.getName();
 													}
-													StructureModel structureModel = modelMap.get(modelName);
 													StructureManager manager = new StructureManager();
 													RepositoryEntry repositoryEntry = ((RepositoryEntry) entry).createNode(structureName, manager, true);
 													ModelGenerationInformation information = new ModelGenerationInformation();
@@ -158,17 +314,33 @@ public class GenerateDynamicContextMenu implements EntryContextMenuProvider {
 													DefinedStructure structure = new DefinedStructure();
 													structure.setId(entry.getId() + "." + structureName);
 													structure.setName(structureName);
-													generate(structure, structureModel);
+													
+													Map<String, Object> originalContext = ServiceRuntime.getGlobalContext();
+													try {
+														ServiceRuntime.setGlobalContext(new HashMap<String, Object>());
+														ServiceUtils.setServiceContext(null, entry.getId());
+														generate(modelGenerator, structure, structureModel);
+													}
+													finally {
+														ServiceRuntime.setGlobalContext(originalContext);
+													}
 													manager.saveContent(repositoryEntry, structure);
 													MainController.getInstance().getRepositoryBrowser().refresh();
 												}
 												catch (Exception e) {
 													MainController.getInstance().notify(e);
 												}
+												finally {
+													buildPopup.hide();
+												}
+											}
+											else {
+												buildPopup.hide();
 											}
 										}
 									});
 								}
+								
 							}
 						}
 					});
@@ -187,14 +359,21 @@ public class GenerateDynamicContextMenu implements EntryContextMenuProvider {
 					public void handle(ActionEvent event) {
 						try {
 							Structure structure = (Structure) entry.getNode().getArtifact();
-							Artifact resolve = entry.getRepository().resolve(information.getGeneratorId());
-							if (resolve instanceof Service) {
-								ModelGenerator generator = POJOUtils.newProxy(ModelGenerator.class, entry.getRepository(), SystemPrincipal.ROOT, EAIResourceRepository.getInstance().getServiceRunner(), (Service) resolve);
+							ModelGenerator generator = getModelGenerators().get(information.getGeneratorId());
+							if (generator != null) {
 								List<StructureModel> models = generator.getModels();
 								if (models != null) {
 									for (StructureModel model : models) {
 										if (model != null && model.getId() != null && model.getId().equals(information.getGenerationId())) {
-											generate(structure, model);
+											Map<String, Object> originalContext = ServiceRuntime.getGlobalContext();
+											try {
+												ServiceRuntime.setGlobalContext(new HashMap<String, Object>());
+												ServiceUtils.setServiceContext(null, entry.getId());
+												generate(generator, structure, model);
+											}
+											finally {
+												ServiceRuntime.setGlobalContext(originalContext);
+											}
 											StructureManager manager = new StructureManager();
 											manager.saveContent((ResourceEntry) entry, structure);
 											MainController.getInstance().getRepositoryBrowser().refresh();
@@ -215,12 +394,17 @@ public class GenerateDynamicContextMenu implements EntryContextMenuProvider {
 	}
 	
 	// TODO: don't remove/regenerate referenced documents, we assume you will update that as needed
-	private static void generate(ModifiableComplexType structure, StructureModelField model) {
-		if (model.getFields() != null) {
+	private static void generate(ModelGenerator generator, ModifiableComplexType structure, StructureModelField model) {
+		List<StructureModelField> fields = model.getFields();
+		// if we don't have fields passed in and we have an id, try to resolve it
+		if (fields == null && model instanceof StructureModel && generator != null) {
+			fields = generator.getFields(((StructureModel) model).getId()); 
+		}
+		if (fields != null) {
 			structure.setProperty(new ValueImpl<String>(CollectionNameProperty.getInstance(), model.getCollectionName()));
 			structure.setProperty(new ValueImpl<String>(CollectionCrudProviderProperty.getInstance(), model.getCollectionCrudProvider()));
 			List<String> usedFields = new ArrayList<String>();
-			for (StructureModelField field : model.getFields()) {
+			for (StructureModelField field : fields) {
 				usedFields.add(field.getName());
 				Element<?> element = structure.get(field.getName());
 				// if you have replaced an anonymous type with a defined type, we skip the element, we assume you will keep that up to date
@@ -239,7 +423,7 @@ public class GenerateDynamicContextMenu implements EntryContextMenuProvider {
 						structure.add(element);
 					}
 					if (element.getType() instanceof ModifiableComplexType) {
-						generate((ModifiableComplexType) element.getType(), field);
+						generate(generator, (ModifiableComplexType) element.getType(), field);
 					}
 				}
 				else {

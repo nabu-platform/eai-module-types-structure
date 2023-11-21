@@ -18,6 +18,7 @@ public class StructureInterfaceLister implements InterfaceLister {
 				if (descriptions == null) {
 					List<InterfaceDescription> descriptions = new ArrayList<InterfaceDescription>();
 					descriptions.add(new InterfaceDescriptionImpl("Types", "Model generator", "be.nabu.eai.module.types.structure.ModelGenerator.getModels"));
+					descriptions.add(new InterfaceDescriptionImpl("Types", "Model field generator", "be.nabu.eai.module.types.structure.ModelGenerator.getFields"));
 					StructureInterfaceLister.descriptions = descriptions;
 				}
 			}
