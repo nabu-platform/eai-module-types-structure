@@ -299,6 +299,7 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		}
 		if (allowComplexChildren) {
 			buttons.getChildren().add(createAddButton(tree, Structure.class, "A structure is a complex type that contains other types"));
+			buttons.getChildren().add(createAddButton(tree, be.nabu.eai.repository.api.Page.class, "A paging structure"));
 		}
 		buttons.getChildren().add(createAddButton(tree, String.class, "A string is a series of characters that make up textual content"));
 		buttons.getChildren().add(createAddButton(tree, Date.class, "A date is a point in time"));
