@@ -361,11 +361,19 @@ public class GenerateDynamicContextMenu implements EntryContextMenuProvider {
 							Structure structure = (Structure) entry.getNode().getArtifact();
 							ModelGenerator generator = getModelGenerators().get(information.getGeneratorId());
 							if (generator != null) {
-								List<StructureModel> models = generator.getModels();
+								List<StructureModel> models;
+								Map<String, Object> originalContext = ServiceRuntime.getGlobalContext();
+								try {
+									ServiceRuntime.setGlobalContext(new HashMap<String, Object>());
+									ServiceUtils.setServiceContext(null, entry.getId());
+									models = generator.getModels();
+								}
+								finally {
+									ServiceRuntime.setGlobalContext(originalContext);
+								}
 								if (models != null) {
 									for (StructureModel model : models) {
 										if (model != null && model.getId() != null && model.getId().equals(information.getGenerationId())) {
-											Map<String, Object> originalContext = ServiceRuntime.getGlobalContext();
 											try {
 												ServiceRuntime.setGlobalContext(new HashMap<String, Object>());
 												ServiceUtils.setServiceContext(null, entry.getId());

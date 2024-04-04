@@ -20,6 +20,7 @@ public class ComplexTypeClipboardProvider implements ClipboardProvider<ComplexTy
 	@Override
 	public String serialize(ComplexType instance) {
 		XMLDefinitionMarshaller marshaller = new XMLDefinitionMarshaller();
+		marshaller.setIgnoreUnknownSuperTypes(true);
 		ByteArrayOutputStream output = new ByteArrayOutputStream();
 		try {
 			marshaller.marshal(output, instance);

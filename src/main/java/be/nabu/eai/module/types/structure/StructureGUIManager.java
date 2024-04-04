@@ -193,7 +193,8 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 		DefinedStructure structure = new DefinedStructure();
 		structure.setName(name == null ? "root" : name);
 		getArtifactManager().save(entry, structure);
-		controller.getRepositoryBrowser().refresh();
+//		controller.getRepositoryBrowser().refresh();
+		EAIDeveloperUtils.reload(target.getId());
 		
 		// reload
 		MainController.getInstance().getAsynchronousRemoteServer().reload(target.getId());
@@ -460,7 +461,8 @@ public class StructureGUIManager implements ArtifactGUIManager<DefinedStructure>
 												// make sure we set the name on the element itself!
 												((Structure) element.getType()).setName(element.getName());
 												manager.saveContent(repositoryEntry, (ComplexType) element.getType());
-												MainController.getInstance().getRepositoryBrowser().refresh();
+//												MainController.getInstance().getRepositoryBrowser().refresh();
+												EAIDeveloperUtils.reload(resolve.getParent().getId());
 												EAIDeveloperUtils.created(repositoryEntry.getId());
 												// if we can modify it, redraw it
 												if (element instanceof ModifiableElement) {
