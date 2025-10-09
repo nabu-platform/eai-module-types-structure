@@ -213,22 +213,28 @@ public class StructureManager implements ArtifactManager<DefinedStructure>, Brok
 	 */
 	public static List<String> getComplexReferences(ComplexType type, boolean includeRecursive) {
 		List<String> references = new ArrayList<String>();
-		getReferences(type, references, includeRecursive);
+		getReferences(type, references, includeRecursive, new ArrayList<Type>());
 		// hard removal of byte array reference...
 		references.remove("[B");
 		return references;
 	}
 	
-	private static void getReferences(ComplexType type, List<String> references, boolean includeRecursive) {
+	private static void getReferences(ComplexType type, List<String> references, boolean includeRecursive, List<Type> alreadyChecked) {
 		if (type.getSuperType() != null && type.getSuperType() instanceof Artifact) {
-			String id = ((Artifact) type.getSuperType()).getId();
-			if (!references.contains(id)) {
-				references.add(id);
+			String parentId = ((Artifact) type.getSuperType()).getId();
+			if (!references.contains(parentId)) {
+				references.add(parentId);
 			}
 		}
 		// if we want recursive resolving (to get a full picture of all references, include the supertype
-		if (includeRecursive && type.getSuperType() instanceof ComplexType) {
-			getReferences((ComplexType) type.getSuperType(), references, includeRecursive);
+		// in swagger there are some weird things where types extends other types that have the same id, there is probably a good reason for this
+		// root types that are arrays, combinations of "anyOf", "allOf" etc
+		// but that means we can't do an id check, instead we do a memory object check
+		// the stripe api actually generates an object structure that seems to have a circular reference in the super types
+		// it is more when dealing with children that circular references can exist
+		if (includeRecursive && type.getSuperType() instanceof ComplexType && !alreadyChecked.contains(type.getSuperType())) {
+			alreadyChecked.add(type.getSuperType());
+			getReferences((ComplexType) type.getSuperType(), references, includeRecursive, alreadyChecked);
 		}
 		// only local children, don't loop over supertype children (this is handled by the above if relevant)
 		for (Element<?> child : type) {
@@ -242,17 +248,15 @@ public class StructureManager implements ArtifactManager<DefinedStructure>, Brok
 			}
 			// if it is a reference, don't recurse unless specifically asked
 			if (child.getType() instanceof Artifact) {
-				Artifact artifact = (Artifact) child.getType();
-				if (!references.contains(artifact.getId())) {
-					references.add(artifact.getId());
-					// we only want to recurse if the artifact itself was not already added and scanned, this to prevent circular reference problems
-					if (includeRecursive && child.getType() instanceof ComplexType) {
-						getReferences((ComplexType) child.getType(), references, includeRecursive);						
-					}
+				String childId = ((Artifact) child.getType()).getId();
+				if (!references.contains(childId)) {
+					references.add(childId);
 				}
 			}
-			else if (child.getType() instanceof ComplexType) {
-				getReferences((ComplexType) child.getType(), references, includeRecursive);
+			// we always want to recurse in "anonymous" types but defined types need the explicit boolean
+			if (child.getType() instanceof ComplexType && !alreadyChecked.contains(child.getType()) && (includeRecursive || !(child.getType() instanceof Artifact))) {
+				alreadyChecked.add(child.getType());
+				getReferences((ComplexType) child.getType(), references, includeRecursive, alreadyChecked);
 			}
 		}
 	}
