@@ -1,0 +1,7 @@
+.git
+.gitignore
+.settings
+target
+.classpath
+.project
+.flattened-pom.xml
