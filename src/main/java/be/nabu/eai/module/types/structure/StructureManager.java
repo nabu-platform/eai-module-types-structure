@@ -69,18 +69,20 @@ import be.nabu.libs.types.api.ModifiableTypeInstance;
 import be.nabu.libs.types.api.SimpleType;
 import be.nabu.libs.types.api.Type;
 import be.nabu.libs.types.base.ValueImpl;
-import be.nabu.libs.types.properties.NameProperty;
 import be.nabu.libs.types.converters.StringToDefinedType;
 import be.nabu.libs.types.definition.xml.XMLDefinitionMarshaller;
 import be.nabu.libs.types.definition.xml.XMLDefinitionUnmarshaller;
+import be.nabu.libs.types.properties.AttributeQualifiedDefaultProperty;
+import be.nabu.libs.types.properties.CollectionHandlerProviderProperty;
+import be.nabu.libs.types.properties.ElementQualifiedDefaultProperty;
 import be.nabu.libs.types.properties.ForeignKeyProperty;
+import be.nabu.libs.types.properties.QualifiedProperty;
 import be.nabu.libs.types.structure.DefinedStructure;
 import be.nabu.libs.types.structure.Structure;
 import be.nabu.libs.types.structure.SuperTypeProperty;
 import be.nabu.libs.validator.api.Validation;
 import be.nabu.libs.validator.api.ValidationMessage;
 import be.nabu.libs.validator.api.ValidationMessage.Severity;
-import be.nabu.libs.property.PropertyFactory;
 import be.nabu.utils.io.IOUtils;
 import be.nabu.utils.io.api.ByteBuffer;
 import be.nabu.utils.io.api.ReadableContainer;
@@ -253,6 +255,12 @@ public class StructureManager implements ArtifactManager<DefinedStructure>, Brok
 	}
 
 	private static void validateProperties(Set<Property<?>> supportedProperties, Value<?>[] values, String context, List<Validation<?>> validations) {
+		// copied from XMLDefinitionUnmarshaller, these need to be manually added
+		supportedProperties = new HashSet<>(supportedProperties);
+		supportedProperties.add(ElementQualifiedDefaultProperty.getInstance());
+		supportedProperties.add(AttributeQualifiedDefaultProperty.getInstance());
+		supportedProperties.add(QualifiedProperty.getInstance());
+		supportedProperties.add(CollectionHandlerProviderProperty.getInstance());
 		Set<String> supported = new HashSet<String>();
 		for (Property<?> property : supportedProperties) {
 			supported.add(property.getName());
@@ -262,10 +270,7 @@ public class StructureManager implements ArtifactManager<DefinedStructure>, Brok
 				continue;
 			}
 			String name = value.getProperty().getName();
-			if (PropertyFactory.getInstance().getProperty(name) == null) {
-				validations.add(new ValidationMessage(Severity.ERROR, "Unknown property '" + name + "' on " + context));
-			}
-			else if (!supported.contains(name)) {
+			if (!supported.contains(name)) {
 				validations.add(new ValidationMessage(Severity.ERROR, "Unsupported property '" + name + "' on " + context));
 			}
 		}
