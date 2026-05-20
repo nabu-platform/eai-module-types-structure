@@ -17,13 +17,17 @@
 
 package be.nabu.eai.module.types.structure;
 
+import java.io.ByteArrayInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import be.nabu.eai.repository.EAIRepositoryUtils;
 import be.nabu.eai.repository.EAIResourceRepository;
@@ -41,6 +45,8 @@ import be.nabu.libs.artifacts.api.Artifact;
 import be.nabu.libs.converter.ConverterFactory;
 import be.nabu.libs.converter.MultipleConverter;
 import be.nabu.libs.converter.base.ConverterImpl;
+import be.nabu.libs.property.ValueUtils;
+import be.nabu.libs.property.api.Property;
 import be.nabu.libs.property.api.Value;
 import be.nabu.libs.resources.ResourceReadableContainer;
 import be.nabu.libs.resources.ResourceWritableContainer;
@@ -56,11 +62,14 @@ import be.nabu.libs.types.MultipleDefinedTypeResolver;
 import be.nabu.libs.types.MultipleSimpleTypeWrapper;
 import be.nabu.libs.types.SimpleTypeWrapperFactory;
 import be.nabu.libs.types.api.ComplexType;
+import be.nabu.libs.types.api.DefinedType;
 import be.nabu.libs.types.api.Element;
 import be.nabu.libs.types.api.ModifiableType;
 import be.nabu.libs.types.api.ModifiableTypeInstance;
+import be.nabu.libs.types.api.SimpleType;
 import be.nabu.libs.types.api.Type;
 import be.nabu.libs.types.base.ValueImpl;
+import be.nabu.libs.types.properties.NameProperty;
 import be.nabu.libs.types.converters.StringToDefinedType;
 import be.nabu.libs.types.definition.xml.XMLDefinitionMarshaller;
 import be.nabu.libs.types.definition.xml.XMLDefinitionUnmarshaller;
@@ -71,6 +80,7 @@ import be.nabu.libs.types.structure.SuperTypeProperty;
 import be.nabu.libs.validator.api.Validation;
 import be.nabu.libs.validator.api.ValidationMessage;
 import be.nabu.libs.validator.api.ValidationMessage.Severity;
+import be.nabu.libs.property.PropertyFactory;
 import be.nabu.utils.io.IOUtils;
 import be.nabu.utils.io.api.ByteBuffer;
 import be.nabu.utils.io.api.ReadableContainer;
@@ -126,31 +136,148 @@ public class StructureManager implements ArtifactManager<DefinedStructure>, Brok
 		if (resource == null) {
 			throw new FileNotFoundException("Can not find: " + name);
 		}
-		XMLDefinitionUnmarshaller unmarshaller = getLocalizedUnmarshaller(entry);
-		unmarshaller.setIgnoreUnknown(validations != null);
 		ReadableContainer<ByteBuffer> readable = new ResourceReadableContainer((ReadableResource) resource);
 		try {
-			unmarshaller.setIdToUnmarshal(entry.getId());
-			Structure structure;
-			// the original code
-			if (target == null) {
-				// evil cast!
-				structure = (Structure) unmarshaller.unmarshal(IOUtils.toInputStream(readable));
-			}
-			else {
-				unmarshaller.unmarshal(IOUtils.toInputStream(readable), target);
-				structure = target;
-			}
-			if (validations != null) {
-				for (String ignoredReference : unmarshaller.getIgnoredReferences()) {
-					validations.add(new ValidationMessage(Severity.ERROR, "Could not find reference '" + ignoredReference + "', it has been removed"));
-				}
-			}
-			return structure;
+			return parse(entry, IOUtils.toBytes(readable), validations, target);
 		}
 		finally {
 			readable.close();
 		}
+	}
+
+	public static Structure parse(ResourceEntry entry, byte[] content, List<Validation<?>> validations, Structure target) throws IOException, ParseException {
+		XMLDefinitionUnmarshaller unmarshaller = getLocalizedUnmarshaller(entry);
+		unmarshaller.setIgnoreUnknown(validations != null);
+		unmarshaller.setIdToUnmarshal(entry.getId());
+		Structure structure;
+		if (target == null) {
+			structure = (Structure) unmarshaller.unmarshal(new ByteArrayInputStream(content));
+		}
+		else {
+			unmarshaller.unmarshal(new ByteArrayInputStream(content), target);
+			structure = target;
+		}
+		if (validations != null) {
+			for (String ignoredReference : unmarshaller.getIgnoredReferences()) {
+				validations.add(new ValidationMessage(Severity.ERROR, "Could not find reference '" + ignoredReference + "', it has been removed"));
+			}
+		}
+		return structure;
+	}
+
+	public static <T extends Structure> T parseUpdatedStructure(ResourceEntry entry, String content, T current, T target, List<Validation<?>> validations) throws IOException, ParseException {
+		T parsed = target;
+		parse(entry, content.getBytes(StandardCharsets.UTF_8), validations, parsed);
+		inheritRootProperties(current, parsed);
+		validateType(parsed, validations, new HashSet<Type>());
+		return parsed;
+	}
+
+	public static void inheritRootProperties(Structure current, Structure target) {
+		if (current == null || target == null) {
+			return;
+		}
+		for (Value<?> value : current.getProperties()) {
+			if (value == null || value.getProperty() == null) {
+				continue;
+			}
+			if (ValueUtils.getValue(value.getProperty(), target.getProperties()) == null) {
+				target.setProperty(value);
+			}
+		}
+	}
+
+	private static void validateType(Type type, List<Validation<?>> validations, Set<Type> visited) {
+		if (type == null || visited.contains(type)) {
+			return;
+		}
+		visited.add(type);
+		validateTypeProperties(type, validations);
+		validateSuperType(type, validations);
+		if (type instanceof ComplexType) {
+			validateChildren((ComplexType) type, validations, visited);
+		}
+		else if (type instanceof SimpleType) {
+			validateSimpleType((SimpleType<?>) type, validations);
+		}
+	}
+
+	private static void validateSuperType(Type type, List<Validation<?>> validations) {
+		Type superType = type.getSuperType();
+		if (superType == null) {
+			return;
+		}
+		if (superType instanceof DefinedType && ((DefinedType) superType).getId() == null) {
+			validations.add(new ValidationMessage(Severity.ERROR, "Could not resolve super type for type '" + type.getName(type.getProperties()) + "'"));
+		}
+	}
+
+	private static void validateChildren(ComplexType type, List<Validation<?>> validations, Set<Type> visited) {
+		Set<String> names = new HashSet<String>();
+		for (Element<?> child : type) {
+			if (child == null) {
+				continue;
+			}
+			String name = child.getName();
+			if (name == null || !name.matches("[A-Za-z][A-Za-z0-9]*")) {
+				validations.add(new ValidationMessage(Severity.ERROR, "Invalid field name '" + name + "'. Field names must match [A-Za-z][A-Za-z0-9]*"));
+			}
+			else if (!names.add(name)) {
+				validations.add(new ValidationMessage(Severity.ERROR, "Duplicate field name '" + name + "'"));
+			}
+			validateElementProperties(child, validations);
+			Type childType = child.getType();
+			if (childType instanceof DefinedType && ((DefinedType) childType).getId() == null) {
+				validations.add(new ValidationMessage(Severity.ERROR, "Could not resolve referenced type for field '" + name + "'"));
+			}
+			validateType(childType, validations, visited);
+		}
+	}
+
+	private static void validateSimpleType(SimpleType<?> type, List<Validation<?>> validations) {
+		if (type instanceof DefinedType && ((DefinedType) type).getId() != null) {
+			return;
+		}
+		String name = type.getName(type.getProperties());
+		if (name == null || SimpleTypeWrapperFactory.getInstance().getWrapper().getByName(name) == null) {
+			validations.add(new ValidationMessage(Severity.ERROR, "Could not resolve simple type '" + name + "'"));
+		}
+	}
+
+	private static void validateTypeProperties(Type type, List<Validation<?>> validations) {
+		validateProperties(type.getSupportedProperties(type.getProperties()), type.getProperties(), "type '" + type.getName(type.getProperties()) + "'", validations);
+	}
+
+	private static void validateElementProperties(Element<?> element, List<Validation<?>> validations) {
+		validateProperties(element.getSupportedProperties(), element.getProperties(), "field '" + element.getName() + "'", validations);
+	}
+
+	private static void validateProperties(Set<Property<?>> supportedProperties, Value<?>[] values, String context, List<Validation<?>> validations) {
+		Set<String> supported = new HashSet<String>();
+		for (Property<?> property : supportedProperties) {
+			supported.add(property.getName());
+		}
+		for (Value<?> value : values) {
+			if (value == null || value.getProperty() == null) {
+				continue;
+			}
+			String name = value.getProperty().getName();
+			if (PropertyFactory.getInstance().getProperty(name) == null) {
+				validations.add(new ValidationMessage(Severity.ERROR, "Unknown property '" + name + "' on " + context));
+			}
+			else if (!supported.contains(name)) {
+				validations.add(new ValidationMessage(Severity.ERROR, "Unsupported property '" + name + "' on " + context));
+			}
+		}
+	}
+
+	private static boolean hasErrors(List<Validation<?>> validations) {
+		for (Validation<?> validation : validations) {
+			if (validation != null && validation.getSeverity() == Severity.ERROR) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	@Override
