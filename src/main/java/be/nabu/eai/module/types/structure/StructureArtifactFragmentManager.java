@@ -7,18 +7,35 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import be.nabu.eai.repository.api.CreatableArtifactFragmentManager;
+import be.nabu.eai.repository.api.Entry;
+import be.nabu.eai.repository.resources.RepositoryEntry;
 import be.nabu.eai.repository.impl.BaseNodeMetadataArtifactFragmentManager;
 import be.nabu.libs.types.api.Type;
 import be.nabu.libs.types.definition.xml.XMLDefinitionMarshaller;
 import be.nabu.libs.types.structure.DefinedStructure;
 import be.nabu.libs.validator.api.Validation;
 
-public class StructureArtifactFragmentManager extends BaseNodeMetadataArtifactFragmentManager<DefinedStructure> {
+public class StructureArtifactFragmentManager extends BaseNodeMetadataArtifactFragmentManager<DefinedStructure> implements CreatableArtifactFragmentManager<DefinedStructure> {
 
 	private static final String STRUCTURE_PATH = "structure.xml";
 	private static final String CONTENT_TYPE = "application/xml";
 	private static final String EXTENSION_HIERARCHY = "extension-hierarchy";
 	private static final String ARTIFACT_TYPE = "structure";
+
+	@Override
+	public Entry createArtifact(Entry parent, String name) {
+		try {
+			RepositoryEntry entry = ((RepositoryEntry) parent).createNode(name, new StructureManager(), true);
+			DefinedStructure structure = new DefinedStructure();
+			structure.setName(name == null ? "root" : name);
+			new StructureManager().save(entry, structure);
+			return entry;
+		}
+		catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
 
 	@Override
 	public List<ArtifactFragment> listFragments(DefinedStructure artifact) {
