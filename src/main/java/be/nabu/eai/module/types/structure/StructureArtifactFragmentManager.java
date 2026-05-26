@@ -94,6 +94,11 @@ public class StructureArtifactFragmentManager extends BaseNodeMetadataArtifactFr
 				}
 				return properties;
 			}
+
+			@Override
+			public Long getLastModified() {
+				return getFragmentLastModified(artifact.getId(), STRUCTURE_PATH);
+			}
 		});
 		return fragments;
 	}
