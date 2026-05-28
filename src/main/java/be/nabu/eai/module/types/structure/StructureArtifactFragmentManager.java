@@ -147,15 +147,7 @@ public class StructureArtifactFragmentManager extends BaseNodeMetadataArtifactFr
 		return false;
 	}
 
-	@Override
-	public List<Validation<?>> deleteFragment(DefinedStructure artifact, String path) {
-		throw new UnsupportedOperationException("Deleting fragments is not supported for structures");
-	}
 
-	@Override
-	public List<Validation<?>> createFragment(DefinedStructure artifact, String path, String content) {
-		throw new UnsupportedOperationException("Creating fragments is not supported for structures");
-	}
 
 	@Override
 	public Class<DefinedStructure> getArtifactClass() {
