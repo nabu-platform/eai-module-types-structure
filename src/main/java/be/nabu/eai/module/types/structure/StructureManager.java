@@ -75,6 +75,7 @@ import be.nabu.libs.types.definition.xml.XMLDefinitionUnmarshaller;
 import be.nabu.libs.types.properties.AttributeQualifiedDefaultProperty;
 import be.nabu.libs.types.properties.CollectionHandlerProviderProperty;
 import be.nabu.libs.types.properties.ElementQualifiedDefaultProperty;
+import be.nabu.libs.types.properties.EnumerationProperty;
 import be.nabu.libs.types.properties.ForeignKeyProperty;
 import be.nabu.libs.types.properties.QualifiedProperty;
 import be.nabu.libs.types.structure.DefinedStructure;
@@ -261,6 +262,7 @@ public class StructureManager implements ArtifactManager<DefinedStructure>, Brok
 		supportedProperties.add(AttributeQualifiedDefaultProperty.getInstance());
 		supportedProperties.add(QualifiedProperty.getInstance());
 		supportedProperties.add(CollectionHandlerProviderProperty.getInstance());
+		supportedProperties.add(new EnumerationProperty<Object>());
 		Set<String> supported = new HashSet<String>();
 		for (Property<?> property : supportedProperties) {
 			supported.add(property.getName());
