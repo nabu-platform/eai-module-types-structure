@@ -7,8 +7,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import be.nabu.eai.repository.EAIResourceRepository;
 import be.nabu.eai.repository.api.CreatableArtifactFragmentManager;
 import be.nabu.eai.repository.api.Entry;
+import be.nabu.eai.repository.api.ResourceEntry;
 import be.nabu.eai.repository.resources.RepositoryEntry;
 import be.nabu.eai.repository.impl.BaseNodeMetadataArtifactFragmentManager;
 import be.nabu.libs.types.api.Type;
@@ -40,10 +42,12 @@ public class StructureArtifactFragmentManager extends BaseNodeMetadataArtifactFr
 	@Override
 	public List<ArtifactFragment> listFragments(DefinedStructure artifact) {
 		List<ArtifactFragment> fragments = new ArrayList<ArtifactFragment>(getSharedFragments(artifact));
+		Entry entry = EAIResourceRepository.getInstance().getEntry(artifact.getId());
+		final boolean editable = entry instanceof ResourceEntry && entry.isEditable();
 		fragments.add(new ArtifactFragment() {
 			@Override
 			public boolean isEditable() {
-				return true;
+				return editable;
 			}
 
 			@Override
